@@ -1,0 +1,25 @@
+{
+    "name": "kaliedoscope",
+    "version": "0.1.0",
+    "description": "WebGL Kaliedoscope",
+    "main": "html/js/kaliedoscope.js",
+    "scripts": {
+        "postinstall": "make dist",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    
+    "author": "Benjamin Blundell",
+    "license": "Creative Commons Attribution Non-Commercial Share Alike",
+    "readmeFilename": "README.markdown",
+    "dependencies": {
+        
+    },
+    
+    "devDependencies": {
+        "coffee-script": "~1.6.2",
+        "browserify": "~2.7.1",
+        "coffeeify": "0.0.0",
+        "uglify-js": "~2.2.0",
+        "node-static": "~0.7.0"
+     }
+}

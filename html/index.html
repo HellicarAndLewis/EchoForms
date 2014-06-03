@@ -1,0 +1,69 @@
+
+<!doctype html>
+
+<!--[if lt IE 7]> 
+  <meta http-equiv="refresh" content="5;url=http://www.webstandards.org/action/previous-campaigns/buc/upgrade/" />
+ <![endif]-->
+<!--[if IE 7 ]>    <html class="ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]>    <html class="ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--> <html lang="en"> <!--<![endif]-->
+<head>
+<title>Kaliedoscope</title>
+
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+<meta name="description" content="Kaliedoscope">
+<meta name="author" content="Benjamin Blundell">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
+<link href="/css/bootstrap.min.css" media="all" rel="stylesheet" type="text/css" />
+<link href="/css/bootstrap-theme.min.css" media="all" rel="stylesheet" type="text/css" />
+
+<style>
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0px;
+    border: 0;
+    padding: 0;
+    overflow: hidden; /*  Disable scrollbars */
+    display: block;  /* No floating content on sides */
+  }
+
+  #webgl-canvas {
+    border: none;
+  }
+
+</style>
+
+
+</head>
+
+<body>
+    
+<header></header>
+
+<style>
+  video {
+    display: none;
+  }
+</style>
+
+<video id="video">
+  Your browser doesn't appear to support the HTML5 <code>&lt;video&gt;</code> element.
+</video>
+
+<canvas id="webgl-canvas"></canvas>
+
+<script type="text/javascript" src="/js/dat.gui.min.js"></script>
+<script type="text/javascript" src="/js/coffeegl.js"></script>
+<script type="text/javascript" src="/js/jquery-2.1.1.min.js"></script>
+<script type="text/javascript" src="/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="/js/kaliedoscope.js"></script>
+
+</body>
+
+</html>
