@@ -8,7 +8,6 @@ precision highp float;
 attribute vec3 aVertexBarycentre;
 
 uniform vec3 uMouseRay;
-uniform bool uDrag;
 varying vec3 vBarycentre;
 
 void main(void) {
