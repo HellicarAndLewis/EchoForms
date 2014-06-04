@@ -30,7 +30,21 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         self.video_element = document.getElementById("video");
         self.video_element.preload = "auto";
         self.video_element.src = "/background.mp4";
+        self.video_element.addEventListener("ended", function() {
+          self.video_element.currentTime = 0;
+          return self.video_element.play();
+        }, false);
+        self.video_element.addEventListener("timeupdate", function() {
+          if (self.video_element.currentTime > 53) {
+            self.video_element.pause();
+            self.video_element.currentTime = 0;
+            self.video_element.play();
+          }
+        }, false);
         return self.video_element.oncanplay = function(event) {
+          self.video_element.play();
+          self.video_element.pause();
+          self.video_element.currentTime = 0;
           self.video_element.play();
           self.t.update(self.video_element);
           self.video_node.add(self.t);
@@ -106,11 +120,11 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
           u: 0.0,
           v: 0.0
         }, {
-          u: 1.0,
-          v: 0.0
+          u: 0.5,
+          v: 1.0
         }, {
           u: 1.0,
-          v: 1.0
+          v: 0.0
         }
       ];
       sstep = [0, 1, 2];
@@ -129,18 +143,26 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       return this.plane_base = CoffeeGL.clone(this.plane);
     };
 
-    Kaliedoscope.prototype.rotateTexCoords = function() {
-      var i, idt, j, np, _i, _ref, _results;
-      np = new CoffeeGL.Vec2(0, 0);
+    Kaliedoscope.prototype.rotateTexCoords = function(dt) {
+      var i, idt, j, np, rotm, _i, _ref, _results;
+      if (!this.mouse_over) {
+        return;
+      }
+      np = new CoffeeGL.Vec3(0, 0, 0);
       idt = 0;
+      rotm = new CoffeeGL.Matrix4();
+      rotm.rotate(new CoffeeGL.Vec3(0, 0, 1), dt * 0.001 * this.warp.rot_speed);
       _results = [];
       for (i = _i = 0, _ref = this.plane_yres - 1; 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
         _results.push((function() {
           var _j, _ref1, _results1;
           _results1 = [];
           for (j = _j = 0, _ref1 = this.plane_xres - 1; 0 <= _ref1 ? _j <= _ref1 : _j >= _ref1; j = 0 <= _ref1 ? ++_j : --_j) {
-            np.x = this.plane.t[idt];
-            _results1.push(np.y = this.plane.t[idt + 1]);
+            np.x = (this.plane.t[idt] * 2.0) - 1;
+            np.y = (this.plane.t[idt + 1] * 2.0) - 1;
+            rotm.multVec(np);
+            this.plane.t[idt++] = (np.x + 1) / 2;
+            _results1.push(this.plane.t[idt++] = (np.y + 1) / 2);
           }
           return _results1;
         }).call(this));
@@ -255,9 +277,11 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         factor: 0.6,
         range: 0.4,
         falloff_factor: 1.0,
-        springiness: 0.0001
+        springiness: 0.0001,
+        rot_speed: 1.0
       };
       this.sound_current = -1;
+      this.sound_on = false;
       this.video_node.brew({
         position_buffer_access: GL.DYNAMIC_DRAW,
         texcoord_buffer_access: GL.DYNAMIC_DRAW
@@ -270,6 +294,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         return _this.shader.setUniform3v("uMouseRay", new CoffeeGL.Vec3(0, 0, 0));
       });
       this.camera = new CoffeeGL.Camera.PerspCamera();
+      this.camera.pos.z = 3.8;
       this.camera.setViewport(CoffeeGL.Context.width, CoffeeGL.Context.height);
       this.video_node.add(this.camera);
       this.t = new CoffeeGL.TextureBase({
@@ -289,6 +314,8 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       datg.add(this.warp, 'range', 0.01, 1.0);
       datg.add(this.warp, 'falloff_factor', 0.01, 10.0);
       datg.add(this.warp, 'springiness', 0.00001, 0.01);
+      datg.add(this.warp, 'rot_speed', 0.01, 10.0);
+      datg.add(this, 'sound_on');
       CoffeeGL.Context.mouseMove.add(this.mouseMoved, this);
       CoffeeGL.Context.mouseOut.add(this.mouseOut, this);
       CoffeeGL.Context.mouseOver.add(this.mouseOver, this);
@@ -306,11 +333,15 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         this.shader.setUniform3v("uMouseRay", this.ray);
       }
       this.morphPlane();
+      this.rotateTexCoords(dt);
       this.video_node.rebrew({
-        position_buffer: 0
+        position_buffer: 0,
+        texcoord_buffer: 0
       });
       this.springBack();
-      return this.playSound();
+      if (this.sound_on) {
+        return this.playSound();
+      }
     };
 
     Kaliedoscope.prototype.draw = function() {

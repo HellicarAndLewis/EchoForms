@@ -30,11 +30,32 @@ class Kaliedoscope
       self.video_element.preload = "auto"
       self.video_element.src = "/background.mp4"
 
+      self.video_element.addEventListener "ended", () ->
+        self.video_element.currentTime = 0
+        self.video_element.play()
+      ,false
+
+      # This is a cheat to get the video lopping as nothing else works ><
+      # Actually, a proper server link nginx works fine. Its to do with partial downloads
+      self.video_element.addEventListener "timeupdate", () ->
+        #console.log self.video_element.currentTime
+        if self.video_element.currentTime > 53 
+          self.video_element.pause()
+          self.video_element.currentTime = 0
+          self.video_element.play()
+          return
+      ,false
+
       self.video_element.oncanplay = (event) =>
+        # This play pause stuff is needed to get around events not firing ><
+        self.video_element.play()
+        self.video_element.pause()
+        self.video_element.currentTime = 0
         self.video_element.play()
         self.t.update self.video_element
         self.video_node.add self.t
         self.video_ready = true
+
         @loaded()
         console.log "Video Loaded"
 
@@ -103,7 +124,7 @@ class Kaliedoscope
     @plane = new CoffeeGL.PlaneHexagonFlat @plane_xres, @plane_yres 
 
     idt = 0
-    tcs = [ {u:0.0, v:0.0}, {u:1.0, v:0.0}, {u:1.0, v:1.0} ]
+    tcs = [ {u:0.0, v:0.0}, {u:0.5, v:1.0}, {u:1.0, v:0.0} ]
     sstep = [0,1,2]
     ids = 0
   
@@ -124,17 +145,27 @@ class Kaliedoscope
     
 
   # when we mvoe the mouse, lets rotate the tex coords as well
-  rotateTexCoords : () ->
+  rotateTexCoords : (dt) ->
 
-    np = new CoffeeGL.Vec2 0,0
+    if not @mouse_over
+      return
+
+    np = new CoffeeGL.Vec3 0,0,0
     idt = 0
+
+    rotm = new CoffeeGL.Matrix4()
+    rotm.rotate new CoffeeGL.Vec3(0,0,1), dt * 0.001 * @warp.rot_speed
 
     for i in [0..@plane_yres-1]
       for j in [0..@plane_xres-1]
         
-        np.x = @plane.t[idt]
-        np.y = @plane.t[idt+1]
+        np.x = (@plane.t[idt] * 2.0 ) - 1
+        np.y = (@plane.t[idt+1] * 2.0) - 1
 
+        rotm.multVec np
+
+        @plane.t[idt++] = (np.x + 1) / 2
+        @plane.t[idt++] = (np.y + 1) / 2
 
   # We do this in CPU space as there is no real speed issue
   morphPlane : () ->
@@ -257,9 +288,11 @@ class Kaliedoscope
       range     : 0.4
       falloff_factor : 1.0
       springiness : 0.0001
+      rot_speed : 1.0
 
     # Sound parameters
     @sound_current = -1
+    @sound_on = false
 
     # Pre brew with correct dynamic flags
     @video_node.brew {position_buffer_access : GL.DYNAMIC_DRAW, texcoord_buffer_access : GL.DYNAMIC_DRAW} 
@@ -274,6 +307,7 @@ class Kaliedoscope
       @shader.setUniform3v "uMouseRay", new CoffeeGL.Vec3 0,0,0
 
     @camera = new CoffeeGL.Camera.PerspCamera()
+    @camera.pos.z = 3.8
     @camera.setViewport CoffeeGL.Context.width, CoffeeGL.Context.height
 
     @video_node.add @camera
@@ -301,6 +335,8 @@ class Kaliedoscope
     datg.add(@warp,'range',0.01,1.0)
     datg.add(@warp,'falloff_factor',0.01,10.0)
     datg.add(@warp,'springiness', 0.00001, 0.01)
+    datg.add(@warp,'rot_speed', 0.01, 10.0)
+    datg.add(@,'sound_on')
 
     
     # Setup mouse listener
@@ -322,11 +358,13 @@ class Kaliedoscope
 
     @morphPlane()
 
-    @video_node.rebrew( { position_buffer : 0 })
+    @rotateTexCoords(dt)
+
+    @video_node.rebrew( { position_buffer : 0 , texcoord_buffer : 0})
   
     @springBack()
 
-    @playSound()
+    @playSound() if @sound_on
 
   draw : () ->
     
