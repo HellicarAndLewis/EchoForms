@@ -42,7 +42,8 @@ float edgeFactor(){
 }
   
 void main(void) {
-  gl_FragColor = texture2D(uSampler, vTexCoord);
-  //gl_FragColor.rgb = mix(vec3(1.0), vec3(0.5), edgeFactor());
-  //gl_FragColor.a = 1.0;
+  //gl_FragColor = texture2D(uSampler, vTexCoord);
+  vec3 tt = texture2D(uSampler, vTexCoord).rgb;
+  gl_FragColor.rgb = mix(vec3(1.0), tt, edgeFactor());
+  gl_FragColor.a = 1.0;
 }

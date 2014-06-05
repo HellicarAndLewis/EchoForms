@@ -213,41 +213,42 @@ This software is released under the MIT Licence. See LICENCE.txt for details
   };
 
   util.clone = function(obj) {
-    var flags, key, newInstance;
-    if ((obj == null) || typeof obj !== 'object') {
-      return obj;
-    }
-    if (obj instanceof Date) {
-      return new Date(obj.getTime());
-    }
-    if (obj instanceof RegExp) {
-      flags = '';
-      if (obj.global != null) {
-        flags += 'g';
-      }
-      if (obj.ignoreCase != null) {
-        flags += 'i';
-      }
-      if (obj.multiline != null) {
-        flags += 'm';
-      }
-      if (obj.sticky != null) {
-        flags += 'y';
-      }
-      return new RegExp(obj.source, flags);
-    }
-    if (obj instanceof Float32Array) {
-      return new Float32Array(obj);
-    }
-    if (obj instanceof Uint16Array) {
-      return new Uint16Array(obj);
-    }
-    newInstance = new obj.constructor();
-    for (key in obj) {
-      newInstance[key] = util.clone(obj[key]);
-    }
-    return newInstance;
+    return JSON.parse(JSON.stringify(obj));
   };
+
+  /*
+  util.clone = (obj) ->
+    if not obj? or typeof obj isnt 'object'
+      return obj
+  
+    if obj instanceof Date
+      return new Date(obj.getTime()) 
+  
+    if obj instanceof RegExp
+      flags = ''
+      flags += 'g' if obj.global?
+      flags += 'i' if obj.ignoreCase?
+      flags += 'm' if obj.multiline?
+      flags += 'y' if obj.sticky?
+      return new RegExp(obj.source, flags) 
+  
+    # TODO - More typed array clones? 
+    # we cant just call the constructor and set the classes you see! :S
+  
+    if obj instanceof Float32Array
+      return new Float32Array(obj)
+  
+    if obj instanceof Uint16Array
+      return new Uint16Array(obj)
+  
+    newInstance = new obj.constructor()
+  
+    for key of obj
+      newInstance[key] = util.clone obj[key]
+  
+    return newInstance
+  */
+
 
   module.exports = util;
 
@@ -1019,6 +1020,12 @@ http://www.flipcode.com/documents/matrfaq.html
       return a.x === this.x && a.y === this.y;
     };
 
+    Vec2.prototype.set = function(x, y) {
+      this.x = x;
+      this.y = y;
+      return this;
+    };
+
     return Vec2;
 
   })();
@@ -1230,6 +1237,13 @@ http://www.flipcode.com/documents/matrfaq.html
       return a.x === this.x && a.y === this.y && a.z === this.z;
     };
 
+    Vec3.prototype.set = function(x, y, z) {
+      this.x = x;
+      this.y = y;
+      this.z = z;
+      return this;
+    };
+
     return Vec3;
 
   })();
@@ -1393,6 +1407,14 @@ http://www.flipcode.com/documents/matrfaq.html
 
     Vec4.prototype.flatten = function() {
       return [this.x, this.y, this.z, this.w];
+    };
+
+    Vec4.prototype.set = function(x, y, z, w) {
+      this.x = x;
+      this.y = y;
+      this.z = z;
+      this.w = w;
+      return this;
     };
 
     return Vec4;
@@ -2858,10 +2880,10 @@ When applying materials, we may need to AUTOGEN stuff - thats not a bad idea act
 
   Geometry = (function() {
     function Geometry() {
-      var gl;
       this.v = [];
-      gl = CoffeeGL.Context.gl;
-      this.layout = gl.TRIANGLES;
+      if (typeof GL !== "undefined" && GL !== null) {
+        this.layout = GL.TRIANGLES;
+      }
       this.flat = false;
       this.faces = [];
       this.indexed = false;
@@ -2882,6 +2904,47 @@ When applying materials, we may need to AUTOGEN stuff - thats not a bad idea act
         t.concat(vertex.flatten());
       }
       return t;
+    };
+
+    Geometry.prototype.getTrisIndexer = function() {
+      var _this = this;
+      if (this.flat) {
+        if (this.indexed) {
+          return function(index) {
+            return [new Vec3(_this.p[_this.indices[index * 3] * 3], _this.p[_this.indices[index * 3] * 3 + 1], _this.p[_this.indices[index * 3] * 3 + 2]), new Vec3(_this.p[_this.indices[index * 3 + 1] * 3], _this.p[_this.indices[index * 3 + 1] * 3 + 1], _this.p[_this.indices[index * 3 + 1] * 3 + 2]), new Vec3(_this.p[_this.indices[index * 3 + 2] * 3], _this.p[_this.indices[index * 3 + 2] * 3 + 1], _this.p[_this.indices[index * 3 + 2] * 3 + 2])];
+          };
+        } else {
+          return function(index) {
+            return [new Vec3(_this.p[index * 9], _this.p[index * 9 + 1], _this.p[index * 9 + 2]), new Vec3(_this.p[index * 9 + 3], _this.p[index * 9 + 4], _this.p[index * 9 + 5]), new Vec3(_this.p[index * 9 + 6], _this.p[index * 9 + 7], _this.p[index * 9 + 8])];
+          };
+        }
+      } else {
+        if (this.indexed) {
+          return function(index) {
+            return [_this.v[_this.indices[index * 3]], _this.v[_this.indices[index * 3 + 1]], _this.v[_this.indices[index * 3 + 2]]];
+          };
+        } else {
+          return function(index) {
+            return [_this.v[index * 3], _this.v[index * 3 + 1], _this.v[index * 3 + 2]];
+          };
+        }
+      }
+    };
+
+    Geometry.prototype.getNumTris = function() {
+      if (this.flat) {
+        if (this.indexed) {
+          return this.indices.length / 3;
+        } else {
+          return this.p.length / 3;
+        }
+      } else {
+        if (this.indexed) {
+          return this.indices.length / 3;
+        } else {
+          return this.v.length / 3;
+        }
+      }
     };
 
     return Geometry;
@@ -3009,8 +3072,10 @@ When applying materials, we may need to AUTOGEN stuff - thats not a bad idea act
         p3 = new Vertex(new Vec3(1, -1, 0), new RGBA(1.0, 1.0, 1.0, 1.0), new Vec3(0, 0, 1), new Vec2(1, 0));
       }
       this.v = [p0, p1, p2, p3];
-      gl = CoffeeGL.Context.gl;
-      this.layout = gl.TRIANGLE_STRIP;
+      gl = GL;
+      if (typeof GL !== "undefined" && GL !== null) {
+        this.layout = GL.TRIANGLE_STRIP;
+      }
       if (this.n == null) {
         this.computeFaceNormal();
       }
@@ -3048,8 +3113,10 @@ When applying materials, we may need to AUTOGEN stuff - thats not a bad idea act
     function VertexSoup(vertex_list) {
       var gl;
       VertexSoup.__super__.constructor.call(this);
-      gl = CoffeeGL.Context.gl;
-      this.layout = gl.POINTS;
+      gl = GL;
+      if (typeof GL !== "undefined" && GL !== null) {
+        this.layout = GL.POINTS;
+      }
       this.v = vertex_list;
     }
 
@@ -3070,6 +3137,9 @@ When applying materials, we may need to AUTOGEN stuff - thats not a bad idea act
       this.faces = [];
       if ((this.indexed != null) === true) {
         this.indices = [];
+      }
+      if (typeof GL !== "undefined" && GL !== null) {
+        this.layout = GL.TRIANGLES;
       }
     }
 
@@ -3267,7 +3337,9 @@ When applying materials, we may need to AUTOGEN stuff - thats not a bad idea act
       this.indices = new Uint16Array(xres * (zres - 1) * 2);
       this.indexed = true;
       this.flat = true;
-      this.layout = GL.TRIANGLE_STRIP;
+      if (typeof GL !== "undefined" && GL !== null) {
+        this.layout = GL.TRIANGLE_STRIP;
+      }
       idv = 0;
       idt = 0;
       idc = 0;
@@ -3333,7 +3405,9 @@ When applying materials, we may need to AUTOGEN stuff - thats not a bad idea act
       this.y = new Float32Array(tt * 3);
       this.indexed = true;
       this.flat = true;
-      this.layout = GL.TRIANGLES;
+      if (typeof GL !== "undefined" && GL !== null) {
+        this.layout = GL.TRIANGLES;
+      }
       idv = 0;
       idt = 0;
       idc = 0;
@@ -5013,6 +5087,7 @@ This software is released under the MIT Licence. See LICENCE.txt for details
 
 
 - TODO
+  * Decouple the GL so we can test - but keep option in because its clean when used
   * TEST ORTHO CAMERA! I dont think it works! ><
   * update isnt really that great :S Keep it internal :)
   * functions to change the positions so we can change things like look pos and
@@ -6898,7 +6973,70 @@ TODO - updating the pos and the matrix together :S tricksy
 
 }).call(this);
 
-},{"./math":4,"./colour":5}],19:[function(require,module,exports){
+},{"./math":4,"./colour":5}],20:[function(require,module,exports){
+// Generated by CoffeeScript 1.6.3
+/* ABOUT
+                       __  .__              ________ 
+   ______ ____   _____/  |_|__| ____   ____/   __   \
+  /  ___// __ \_/ ___\   __\  |/  _ \ /    \____    /
+  \___ \\  ___/\  \___|  | |  (  <_> )   |  \ /    / 
+ /____  >\___  >\___  >__| |__|\____/|___|  //____/  .co.uk
+      \/     \/     \/                    \/         
+                                              CoffeeGL
+                                              Benjamin Blundell - ben@section9.co.uk
+                                              http://www.section9.co.uk
+
+This software is released under the MIT Licence. See LICENCE.txt for details
+*/
+
+
+(function() {
+  var Material, RGB, RGBA, _ref;
+
+  _ref = require("./colour"), RGB = _ref.RGB, RGBA = _ref.RGBA;
+
+  /*Material*/
+
+
+  Material = (function() {
+    function Material(ambient, diffuse, specular, shine, emissive) {
+      this.ambient = ambient;
+      this.diffuse = diffuse;
+      this.specular = specular;
+      this.shine = shine;
+      this.emissive = emissive;
+      if (this.ambient == null) {
+        this.ambient = new RGB(0, 0, 0);
+      }
+      if (this.diffuse == null) {
+        this.diffuse = new RGB(1.0, 1.0, 1.0);
+      }
+      if (this.specular == null) {
+        this.specular = new RGB(1.0, 1.0, 1.0);
+      }
+      if (this.shine == null) {
+        this.shine = 20.0;
+      }
+      if (this.emissive == null) {
+        this.emissive = new RGB(0.0, 0.0, 0.0);
+      }
+    }
+
+    Material.prototype._addToNode = function(node) {
+      return node.material = this;
+    };
+
+    return Material;
+
+  })();
+
+  module.exports = {
+    Material: Material
+  };
+
+}).call(this);
+
+},{"./colour":5}],19:[function(require,module,exports){
 // Generated by CoffeeScript 1.6.3
 /*
                        __  .__              ________ 
@@ -7172,70 +7310,7 @@ This software is released under the MIT Licence. See LICENCE.txt for details
 
 }).call(this);
 
-},{"./math":4}],20:[function(require,module,exports){
-// Generated by CoffeeScript 1.6.3
-/* ABOUT
-                       __  .__              ________ 
-   ______ ____   _____/  |_|__| ____   ____/   __   \
-  /  ___// __ \_/ ___\   __\  |/  _ \ /    \____    /
-  \___ \\  ___/\  \___|  | |  (  <_> )   |  \ /    / 
- /____  >\___  >\___  >__| |__|\____/|___|  //____/  .co.uk
-      \/     \/     \/                    \/         
-                                              CoffeeGL
-                                              Benjamin Blundell - ben@section9.co.uk
-                                              http://www.section9.co.uk
-
-This software is released under the MIT Licence. See LICENCE.txt for details
-*/
-
-
-(function() {
-  var Material, RGB, RGBA, _ref;
-
-  _ref = require("./colour"), RGB = _ref.RGB, RGBA = _ref.RGBA;
-
-  /*Material*/
-
-
-  Material = (function() {
-    function Material(ambient, diffuse, specular, shine, emissive) {
-      this.ambient = ambient;
-      this.diffuse = diffuse;
-      this.specular = specular;
-      this.shine = shine;
-      this.emissive = emissive;
-      if (this.ambient == null) {
-        this.ambient = new RGB(0, 0, 0);
-      }
-      if (this.diffuse == null) {
-        this.diffuse = new RGB(1.0, 1.0, 1.0);
-      }
-      if (this.specular == null) {
-        this.specular = new RGB(1.0, 1.0, 1.0);
-      }
-      if (this.shine == null) {
-        this.shine = 20.0;
-      }
-      if (this.emissive == null) {
-        this.emissive = new RGB(0.0, 0.0, 0.0);
-      }
-    }
-
-    Material.prototype._addToNode = function(node) {
-      return node.material = this;
-    };
-
-    return Material;
-
-  })();
-
-  module.exports = {
-    Material: Material
-  };
-
-}).call(this);
-
-},{"./colour":5}],22:[function(require,module,exports){
+},{"./math":4}],22:[function(require,module,exports){
 // Generated by CoffeeScript 1.6.3
 /* ABOUT
                        __  .__              ________ 
@@ -7253,7 +7328,7 @@ This software is released under the MIT Licence. See LICENCE.txt for details
 
 
 (function() {
-  var CoffeeGLError, CoffeeGLWarning, Edge2, Grad, Matrix4, PI, Vec2, Vec3, Vec4, boundingBox, closestPointLine, edge2Bisector, lerp, precomputeTangent, rayCircleIntersection, rayPlaneIntersect, _precomputeTangent, _ref, _ref1;
+  var CoffeeGLError, CoffeeGLWarning, Edge2, Grad, Matrix4, PI, Vec2, Vec3, Vec4, boundingBox, closestPointLine, edge2Bisector, lerp, precomputeTangent, rayCircleIntersection, rayPlaneIntersect, screenNodeHitTest, _precomputeTangent, _ref, _ref1;
 
   _ref = require('./math'), Vec2 = _ref.Vec2, Vec3 = _ref.Vec3, Vec4 = _ref.Vec4, Matrix4 = _ref.Matrix4, PI = _ref.PI, Edge2 = _ref.Edge2;
 
@@ -7262,11 +7337,54 @@ This software is released under the MIT Licence. See LICENCE.txt for details
   /* rayPlaneIntersect*/
 
 
-  rayPlaneIntersect = function(plane_point, plane_normal, line_point, line_dir) {
+  rayPlaneIntersect = function(plane_point, plane_normal, ray_point, ray_dir) {
     var den, num;
-    num = Vec3.dot(plane_normal, Vec3.sub(plane_point, line_point));
-    den = Vec3.dot(plane_normal, line_dir);
+    num = Vec3.dot(plane_normal, Vec3.sub(plane_point, ray_point));
+    den = Vec3.dot(plane_normal, ray_dir);
     return num / den;
+  };
+
+  /* screenNodeHitTest*/
+
+
+  screenNodeHitTest = function(sx, sy, camera, node, result, matrix) {
+    var a, b, c, c0, c1, c2, child, d, i, indexer, n, num_tris, plane_hit, ray, t0, t1, t2, _i, _j, _len, _ref2, _ref3, _ref4;
+    ray = camera.castRay(sx, sy);
+    if (matrix == null) {
+      matrix = new Matrix4();
+    }
+    matrix = Matrix4.mult(matrix, node.matrix);
+    if (node.geometry != null) {
+      indexer = node.geometry.getTrisIndexer();
+      num_tris = node.geometry.getNumTris();
+      for (i = _i = 0, _ref2 = num_tris - 1; 0 <= _ref2 ? _i <= _ref2 : _i >= _ref2; i = 0 <= _ref2 ? ++_i : --_i) {
+        _ref3 = indexer(i), a = _ref3[0], b = _ref3[1], c = _ref3[2];
+        matrix.multVec(a).multVec(b).multVec(c);
+        t0 = Vec3.sub(b, a).normalize();
+        t1 = Vec3.sub(c, a).normalize();
+        n = Vec3.cross(t0, t1);
+        n.normalize();
+        d = rayPlaneIntersect(a, n, camera.pos, ray);
+        plane_hit = ray.copy().multScalar(d);
+        plane_hit.add(camera.pos);
+        t0 = Vec3.sub(b, a).normalize();
+        t1 = Vec3.sub(c, b).normalize();
+        t2 = Vec3.sub(a, c).normalize();
+        c0 = Vec3.sub(plane_hit, a).dot(t0);
+        c1 = Vec3.sub(plane_hit, b).dot(t1);
+        c2 = Vec3.sub(plane_hit, c).dot(t2);
+        if ((c0 >= 0 && c1 >= 0 && c2 >= 0) || (c0 < 0 && c1 < 0 && c2 < 0)) {
+          result.copyFrom(plane_hit);
+          return i;
+        }
+      }
+    }
+    _ref4 = node.children;
+    for (_j = 0, _len = _ref4.length; _j < _len; _j++) {
+      child = _ref4[_j];
+      screenNodeHitTest(sx, sy, camera, child, result, matrix);
+    }
+    return -1;
   };
 
   /* precomputeTangent*/
@@ -7482,7 +7600,8 @@ This software is released under the MIT Licence. See LICENCE.txt for details
     rayCircleIntersection: rayCircleIntersection,
     precomputeTangent: precomputeTangent,
     closestPointLine: closestPointLine,
-    lerp: lerp
+    lerp: lerp,
+    screenNodeHitTest: screenNodeHitTest
   };
 
 }).call(this);

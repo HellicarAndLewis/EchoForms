@@ -43,15 +43,14 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
           }
         }, false);
         return self.video_element.oncanplay = function(event) {
-          self.video_element.play();
-          self.video_element.pause();
-          self.video_element.currentTime = 0;
-          self.video_element.play();
-          self.t.update(self.video_element);
-          self.video_node.add(self.t);
-          self.video_ready = true;
-          _this.loaded();
-          return console.log("Video Loaded");
+          if (!self.video_ready) {
+            self.video_element.play();
+            self.t.update(self.video_element);
+            self.video_node.add(self.t);
+            self.video_ready = true;
+            _this.loaded();
+            return console.log("Video Loaded");
+          }
         };
       });
       _genLoadAudio = function(audio_url) {
@@ -113,9 +112,10 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     };
 
     Kaliedoscope.prototype.setupPlane = function() {
-      var i, ids, idt, j, sstep, tcs, _i, _j, _ref, _ref1;
+      var i, idc, ids, idt, j, sstep, tcs, _i, _j, _ref, _ref1;
       this.plane = new CoffeeGL.PlaneHexagonFlat(this.plane_xres, this.plane_yres);
       idt = 0;
+      idc = 0;
       tcs = [
         {
           u: 0.0,
@@ -139,20 +139,21 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
           if (ids > 2) {
             ids = 0;
           }
+          this.plane.c[idc++] = 0;
+          this.plane.c[idc++] = 0;
+          this.plane.c[idc++] = 0;
+          this.plane.c[idc++] = 0;
         }
       }
-      return this.plane_base = CoffeeGL.clone(this.plane);
+      return this.plane_base = JSON.parse(JSON.stringify(this.plane));
     };
 
-    Kaliedoscope.prototype.rotateTexCoords = function(dt) {
+    Kaliedoscope.prototype.rotateTexCoords = function() {
       var i, idt, j, np, rotm, _i, _ref, _results;
-      if (!this.mouse_over) {
-        return;
-      }
       np = new CoffeeGL.Vec3(0, 0, 0);
       idt = 0;
       rotm = new CoffeeGL.Matrix4();
-      rotm.rotate(new CoffeeGL.Vec3(0, 0, 1), dt * 0.001 * this.warp.rot_speed);
+      rotm.rotate(new CoffeeGL.Vec3(0, 0, 1), 0.001 * this.warp.rot_speed);
       _results = [];
       for (i = _i = 0, _ref = this.plane_yres - 1; 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
         _results.push((function() {
@@ -172,54 +173,50 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     };
 
     Kaliedoscope.prototype.morphPlane = function() {
-      var dd, dir, dir_dist, falloff, i, idt, inv, j, np, ray2, ray2_prev, tp, _i, _ref, _results;
+      var dd, force, force_dist, i, idc, idt, inv, j, np, _i, _j, _ref, _ref1;
       if (!(this.mouse_over && this.mouse_pressed)) {
         return;
       }
       idt = 0;
+      idc = 0;
       np = new CoffeeGL.Vec3(0, 0, 0);
-      tp = new CoffeeGL.Vec2(0, 0);
-      ray2 = new CoffeeGL.Vec2(this.ray.x, this.ray.y);
-      ray2_prev = new CoffeeGL.Vec2(this.ray_prev.x, this.ray_prev.y);
       inv = CoffeeGL.Matrix4.invert(this.video_node.matrix);
-      _results = [];
       for (i = _i = 0, _ref = this.plane_yres - 1; 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
-        _results.push((function() {
-          var _j, _ref1, _results1;
-          _results1 = [];
-          for (j = _j = 0, _ref1 = this.plane_xres - 1; 0 <= _ref1 ? _j <= _ref1 : _j >= _ref1; j = 0 <= _ref1 ? ++_j : --_j) {
-            np.x = this.plane.p[idt];
-            np.y = this.plane.p[idt + 1];
-            np.z = this.plane.p[idt + 2];
-            this.video_node.matrix.multVec(np);
-            tp.x = np.x;
-            tp.y = np.y;
-            dir = CoffeeGL.Vec2.sub(ray2, ray2_prev);
-            dir_dist = ray2.dist(ray2_prev);
-            dd = tp.dist(ray2);
-            dir.normalize();
+        for (j = _j = 0, _ref1 = this.plane_xres - 1; 0 <= _ref1 ? _j <= _ref1 : _j >= _ref1; j = 0 <= _ref1 ? ++_j : --_j) {
+          np.x = this.plane.p[idt++];
+          np.y = this.plane.p[idt++];
+          np.z = this.plane.p[idt++];
+          this.video_node.matrix.multVec(np);
+          force = CoffeeGL.Vec3.sub(this.intersect, this.intersect_prev);
+          force_dist = this.intersect.dist(this.intersect_prev);
+          dd = np.dist(this.intersect);
+          if (force_dist > 0.001) {
             if (dd < this.warp.range) {
-              falloff = dd / this.warp.range * this.warp.falloff_factor;
-              tp.add(dir.multScalar(Math.pow(dir_dist, this.warp.exponent) * this.warp.factor * falloff));
+              force.normalize();
+              force.multScalar(0.01 * 1.0 / (dd * dd));
+              np.x = force.x;
+              np.y = force.y;
+              np.z = 0;
+              inv.multVec(np);
+              this.plane.c[idc] += np.x;
+              this.plane.c[idc + 1] += np.y;
+              this.plane.c[idc + 2] += np.z;
+              this.plane.c[idc + 3] = 0;
             }
-            np.x = tp.x;
-            np.y = tp.y;
-            inv.multVec(np);
-            this.plane.p[idt++] = np.x;
-            this.plane.p[idt++] = np.y;
-            _results1.push(this.plane.p[idt++] = np.z);
           }
-          return _results1;
-        }).call(this));
+          idc += 4;
+        }
       }
-      return _results;
+      return this;
     };
 
     Kaliedoscope.prototype.springBack = function() {
-      var bp, dir, dir_dist, i, idt, j, np, _i, _ref, _results;
+      var bp, ff, i, idc, idt, j, np, spring_dist, spring_force, _i, _ref, _results;
       idt = 0;
+      idc = 0;
       np = new CoffeeGL.Vec3(0, 0, 0);
       bp = new CoffeeGL.Vec3(0, 0, 0);
+      ff = new CoffeeGL.Vec3(0, 0, 0);
       _results = [];
       for (i = _i = 0, _ref = this.plane_yres - 1; 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
         _results.push((function() {
@@ -232,16 +229,23 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
             bp.x = this.plane_base.p[idt];
             bp.y = this.plane_base.p[idt + 1];
             bp.z = this.plane_base.p[idt + 2];
-            dir = CoffeeGL.Vec3.sub(bp, np);
-            dir_dist = bp.dist(np);
-            dir.normalize();
-            dir.multScalar(this.warp.springiness);
-            if (dir_dist > 0.01) {
-              this.plane.p[idt] = np.x + dir.x;
-              this.plane.p[idt + 1] = np.y + dir.y;
-              this.plane.p[idt + 2] = np.z + dir.z;
-            }
-            _results1.push(idt += 3);
+            ff.x = this.plane.c[idc];
+            ff.y = this.plane.c[idc + 1];
+            ff.z = this.plane.c[idc + 2];
+            spring_force = CoffeeGL.Vec3.sub(bp, np);
+            spring_dist = bp.dist(np);
+            spring_force.normalize();
+            spring_force.multScalar(spring_dist * 0.01);
+            ff.add(spring_force);
+            ff.multScalar(this.warp.spring_damping);
+            this.plane.c[idc] = ff.x;
+            this.plane.c[idc + 1] = ff.y;
+            this.plane.c[idc + 2] = ff.z;
+            this.plane.p[idt] = np.x + ff.x;
+            this.plane.p[idt + 1] = np.y + ff.y;
+            this.plane.p[idt + 2] = np.z + ff.z;
+            idt += 3;
+            _results1.push(idc += 4);
           }
           return _results1;
         }).call(this));
@@ -269,17 +273,20 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         _this = this;
       this.plane_yres = 9;
       this.plane_xres = 21;
-      this.ray = new CoffeeGL.Vec3(0, 0, 0);
-      this.ray_prev = new CoffeeGL.Vec3(0, 0, 0);
       this.setupPlane();
       this.video_node = new CoffeeGL.Node(this.plane);
+      this.ray = new CoffeeGL.Vec3(0, 0, 0);
+      this.intersect_prev = new CoffeeGL.Vec3(0, 0, 0);
+      this.intersect = new CoffeeGL.Vec3(0, 0, 0);
       this.warp = {
-        exponent: 2,
-        factor: 0.6,
-        range: 0.4,
+        exponent: 1.4,
+        factor: 2.6,
+        range: 1.0,
         falloff_factor: 1.0,
-        springiness: 0.0001,
-        rot_speed: 1.0
+        springiness: 0.3,
+        springiness_exponent: 2.0,
+        rot_speed: 4.0,
+        spring_damping: 0.92
       };
       this.sound_current = -1;
       this.sound_on = false;
@@ -295,7 +302,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         return _this.shader.setUniform3v("uMouseRay", new CoffeeGL.Vec3(0, 0, 0));
       });
       this.camera = new CoffeeGL.Camera.PerspCamera();
-      this.camera.pos.z = 3.8;
+      this.camera.pos.z = 4.8;
       this.camera.setViewport(CoffeeGL.Context.width, CoffeeGL.Context.height);
       this.video_node.add(this.camera);
       this.t = new CoffeeGL.TextureBase({
@@ -312,9 +319,10 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       datg.remember(this);
       datg.add(this.warp, 'exponent', 1.0, 5.0);
       datg.add(this.warp, 'factor', 0.001, 10.0);
-      datg.add(this.warp, 'range', 0.01, 1.0);
+      datg.add(this.warp, 'range', 0.1, 5.0);
       datg.add(this.warp, 'falloff_factor', 0.01, 10.0);
-      datg.add(this.warp, 'springiness', 0.00001, 0.01);
+      datg.add(this.warp, 'springiness', 0.01, 5.0);
+      datg.add(this.warp, 'springiness_exponent', 0.1, 5.0);
       datg.add(this.warp, 'rot_speed', 0.01, 10.0);
       datg.add(this, 'sound_on');
       CoffeeGL.Context.mouseMove.add(this.mouseMoved, this);
@@ -334,7 +342,6 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         this.shader.setUniform3v("uMouseRay", this.ray);
       }
       this.morphPlane();
-      this.rotateTexCoords(dt);
       this.video_node.rebrew({
         position_buffer: 0,
         texcoord_buffer: 0
@@ -358,13 +365,16 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     };
 
     Kaliedoscope.prototype.mouseMoved = function(event) {
-      var x, y;
+      var index, x, y;
       x = event.mouseX;
       y = event.mouseY;
-      this.ray_prev.copyFrom(this.ray);
-      this.ray = this.camera.castRay(x, y);
-      this.ray.multScalar(this.camera.pos.z);
-      return console.log(this.ray);
+      this.intersect_prev.copyFrom(this.intersect);
+      this.rotateTexCoords();
+      this.intersect.set(0, 0, 0);
+      index = CoffeeGL.Math.screenNodeHitTest(x, y, this.camera, this.video_node, this.intersect);
+      if (index !== -1) {
+        return console.log(index);
+      }
     };
 
     Kaliedoscope.prototype.mouseOver = function(event) {
@@ -380,7 +390,9 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     };
 
     Kaliedoscope.prototype.mouseUp = function(event) {
-      return this.mouse_pressed = false;
+      this.mouse_pressed = false;
+      this.intersect_prev.set(0, 0, 0);
+      return this.intersect.set(0, 0, 0);
     };
 
     return Kaliedoscope;

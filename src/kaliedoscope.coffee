@@ -48,16 +48,17 @@ class Kaliedoscope
 
       self.video_element.oncanplay = (event) =>
         # This play pause stuff is needed to get around events not firing ><
-        self.video_element.play()
-        self.video_element.pause()
-        self.video_element.currentTime = 0
-        self.video_element.play()
-        self.t.update self.video_element
-        self.video_node.add self.t
-        self.video_ready = true
+        if not self.video_ready
+          #self.video_element.play()
+          #self.video_element.pause()
+          #self.video_element.currentTime = 0
+          self.video_element.play()
+          self.t.update self.video_element
+          self.video_node.add self.t
+          self.video_ready = true
 
-        @loaded()
-        console.log "Video Loaded"
+          @loaded()
+          console.log "Video Loaded"
 
     # Return Audio Load Items
     _genLoadAudio = (audio_url) ->
@@ -121,9 +122,13 @@ class Kaliedoscope
     # with each shared edge reflecting
 
     # Also alter to make the hexagons more regular
+
+    # Appears to be a bug at certain resolutions of the hex plane where the texture
+    # isnt mapped right? :S
     @plane = new CoffeeGL.PlaneHexagonFlat @plane_xres, @plane_yres 
 
     idt = 0
+    idc = 0
     tcs = [ {u:0.0, v:0.0}, {u:0.5, v:1.0}, {u:1.0, v:0.0} ]
     sstep = [0,1,2]
     ids = 0
@@ -134,6 +139,15 @@ class Kaliedoscope
 
       for j in [0..@plane_xres-1]
 
+        # Spider on Crack function
+
+        #r = Math.random()
+
+        #if r > 0.7
+        #  @plane.t[idt++] = tcs[ids].u * (1.0 - r)
+        #  @plane.t[idt++] = tcs[ids].v * (1.0 - r)
+        #else
+
         @plane.t[idt++] = tcs[ids].u
         @plane.t[idt++] = tcs[ids].v
         ids++
@@ -141,20 +155,23 @@ class Kaliedoscope
         if ids > 2
           ids = 0
 
-    @plane_base = CoffeeGL.clone @plane
+        # We use the colour part as the force part
+        @plane.c[idc++] = 0
+        @plane.c[idc++] = 0
+        @plane.c[idc++] = 0
+        @plane.c[idc++] = 0
+
+    @plane_base = JSON.parse(JSON.stringify(@plane)) # CoffeeGL Clone doesnt quite work
     
 
   # when we mvoe the mouse, lets rotate the tex coords as well
-  rotateTexCoords : (dt) ->
-
-    if not @mouse_over
-      return
+  rotateTexCoords : () ->
 
     np = new CoffeeGL.Vec3 0,0,0
     idt = 0
 
     rotm = new CoffeeGL.Matrix4()
-    rotm.rotate new CoffeeGL.Vec3(0,0,1), dt * 0.001 * @warp.rot_speed
+    rotm.rotate new CoffeeGL.Vec3(0,0,1), 0.001 * @warp.rot_speed
 
     for i in [0..@plane_yres-1]
       for j in [0..@plane_xres-1]
@@ -174,59 +191,66 @@ class Kaliedoscope
       return
 
     idt = 0 
+    idc = 0
     np = new CoffeeGL.Vec3 0,0,0
-    tp = new CoffeeGL.Vec2 0,0
-    ray2 = new CoffeeGL.Vec2 @ray.x, @ray.y
-    ray2_prev = new CoffeeGL.Vec2 @ray_prev.x, @ray_prev.y
 
     inv =  CoffeeGL.Matrix4.invert @video_node.matrix
 
     for i in [0..@plane_yres-1]
       for j in [0..@plane_xres-1]
 
-        np.x = @plane.p[idt]
-        np.y = @plane.p[idt+1]
-        np.z = @plane.p[idt+2]
+        np.x = @plane.p[idt++]
+        np.y = @plane.p[idt++]
+        np.z = @plane.p[idt++]
 
         @video_node.matrix.multVec(np)
 
-        # Work in 2D with the ray and plane
-        tp.x = np.x
-        tp.y = np.y
+        force = CoffeeGL.Vec3.sub(@intersect, @intersect_prev)
+        force_dist = @intersect.dist @intersect_prev
 
-
-        dir = CoffeeGL.Vec2.sub(ray2, ray2_prev)
-        dir_dist = ray2.dist ray2_prev
-
-        dd = tp.dist ray2
+        dd = np.dist @intersect
         
-        dir.normalize()
 
-        if dd < @warp.range
+        # Create a force on the vertices
 
-          falloff = dd / @warp.range * @warp.falloff_factor
+        #if dd < @warp.range
 
-          tp.add( dir.multScalar( Math.pow(dir_dist,@warp.exponent) * @warp.factor * falloff))
+        #  falloff = dd / @warp.range * @warp.falloff_factor
+          #Math.pow(dir_dist,@warp.exponent) * @warp.factor * falloff)
+          #tp.add( dir.multScalar(dir_dist * 0.001))
+         
 
-        # Back to 3D
+        if force_dist > 0.001
 
-        np.x = tp.x
-        np.y = tp.y
+          if dd < @warp.range
 
-        inv.multVec np
+            force.normalize()
+            force.multScalar(0.01 * 1.0/(dd * dd) )
 
-        @plane.p[idt++] = np.x
-        @plane.p[idt++] = np.y
-        @plane.p[idt++] = np.z
+            np.x = force.x
+            np.y = force.y
+            np.z = 0
 
+            inv.multVec np
+
+            # Commit this new force
+            @plane.c[idc] += np.x
+            @plane.c[idc+1] += np.y
+            @plane.c[idc+2] += np.z
+            @plane.c[idc+3] = 0
+
+        idc += 4
+    @
 
   # Spring back to where we started
   springBack : () ->
 
     idt = 0
+    idc = 0
 
     np = new CoffeeGL.Vec3 0,0,0
     bp = new CoffeeGL.Vec3 0,0,0
+    ff = new CoffeeGL.Vec3 0,0,0
 
     for i in [0..@plane_yres-1]
       for j in [0..@plane_xres-1]
@@ -239,20 +263,35 @@ class Kaliedoscope
         bp.y = @plane_base.p[idt+1]
         bp.z = @plane_base.p[idt+2]
 
+        ff.x = @plane.c[idc]
+        ff.y = @plane.c[idc+1]
+        ff.z = @plane.c[idc+2]
 
-        dir = CoffeeGL.Vec3.sub bp, np
-        dir_dist = bp.dist np
+        spring_force = CoffeeGL.Vec3.sub bp, np
+        spring_dist = bp.dist np
 
-        dir.normalize()
-        dir.multScalar(@warp.springiness)
+        spring_force.normalize()
+        #Math.pow(spring_dist,@warp.springiness_exponent) * @warp.springiness
+        spring_force.multScalar(spring_dist * 0.01) 
 
-        if dir_dist > 0.01
+    
+        # Resolve the forces - spring and mouse
+        ff.add spring_force
 
-          @plane.p[idt] = np.x + dir.x
-          @plane.p[idt+1] = np.y + dir.y
-          @plane.p[idt+2] = np.z + dir.z
+        ff.multScalar @warp.spring_damping
 
+        @plane.c[idc] = ff.x
+        @plane.c[idc+1] = ff.y
+        @plane.c[idc+2] = ff.z
+
+  
+        @plane.p[idt] = np.x + ff.x
+        @plane.p[idt+1] = np.y + ff.y
+        @plane.p[idt+2] = np.z + ff.z
+
+    
         idt += 3
+        idc += 4
 
 
   # Transformation for the geometry based on width and height
@@ -267,28 +306,30 @@ class Kaliedoscope
     @video_node.matrix.scale new CoffeeGL.Vec3 xfactor,1,yfactor
 
  
-
   init : () ->
     
+    # Plane
     @plane_yres = 9
     @plane_xres = 21
-
-    @ray = new CoffeeGL.Vec3 0,0,0
-    @ray_prev = new CoffeeGL.Vec3 0,0,0
-
     @setupPlane()
-    
     @video_node = new CoffeeGL.Node @plane
+
+    # Intersections
+    @ray = new CoffeeGL.Vec3 0,0,0
+    @intersect_prev = new CoffeeGL.Vec3 0,0,0
+    @intersect = new CoffeeGL.Vec3 0,0,0
 
     # Warp parameters
 
     @warp =
-      exponent  : 2
-      factor    : 0.6
-      range     : 0.4
+      exponent  : 1.4
+      factor    : 2.6
+      range     : 1.0
       falloff_factor : 1.0
-      springiness : 0.0001
-      rot_speed : 1.0
+      springiness : 0.3
+      springiness_exponent : 2.0
+      rot_speed : 4.0
+      spring_damping : 0.92
 
     # Sound parameters
     @sound_current = -1
@@ -307,7 +348,7 @@ class Kaliedoscope
       @shader.setUniform3v "uMouseRay", new CoffeeGL.Vec3 0,0,0
 
     @camera = new CoffeeGL.Camera.PerspCamera()
-    @camera.pos.z = 3.8
+    @camera.pos.z = 4.8
     @camera.setViewport CoffeeGL.Context.width, CoffeeGL.Context.height
 
     @video_node.add @camera
@@ -332,9 +373,10 @@ class Kaliedoscope
 
     datg.add(@warp,'exponent',1.0,5.0)
     datg.add(@warp,'factor',0.001,10.0)
-    datg.add(@warp,'range',0.01,1.0)
+    datg.add(@warp,'range',0.1,5.0)
     datg.add(@warp,'falloff_factor',0.01,10.0)
-    datg.add(@warp,'springiness', 0.00001, 0.01)
+    datg.add(@warp,'springiness', 0.01, 5.0)
+    datg.add(@warp,'springiness_exponent', 0.1, 5.0)
     datg.add(@warp,'rot_speed', 0.01, 10.0)
     datg.add(@,'sound_on')
 
@@ -358,8 +400,6 @@ class Kaliedoscope
 
     @morphPlane()
 
-    @rotateTexCoords(dt)
-
     @video_node.rebrew( { position_buffer : 0 , texcoord_buffer : 0})
   
     @springBack()
@@ -382,15 +422,21 @@ class Kaliedoscope
     x = event.mouseX
     y = event.mouseY
 
-    @ray_prev.copyFrom @ray
-    @ray = @camera.castRay x,y
+    @intersect_prev.copyFrom @intersect 
+    #@ray = @camera.castRay x,y
 
-    # Multiply by the distance away of the camera 
-    # The plane is at the origin and the camera is looking down the z
-    # so distance can be computed easily
-    @ray.multScalar @camera.pos.z
+    #intersect_depth = CoffeeGL.Math.rayPlaneIntersect new CoffeeGL.Vec3(0,0,0), new CoffeeGL.Vec3(0,0,1), @camera.pos, @ray
 
-    console.log @ray
+    #@intersect = CoffeeGL.Vec3.multScalar @ray, intersect_depth
+    #@intersect.add @camera.pos
+
+    @rotateTexCoords()
+    
+    @intersect.set 0,0,0
+    
+    index = CoffeeGL.Math.screenNodeHitTest(x,y,@camera,@video_node,@intersect)
+    if index != -1
+      console.log index
 
 
   mouseOver : (event) ->
@@ -405,6 +451,8 @@ class Kaliedoscope
 
   mouseUp : (event) ->
     @mouse_pressed = false
+    @intersect_prev.set 0,0,0
+    @intersect.set 0,0,0 
 
 # Initial Size of the Canvas, pre WebGL
 canvas = document.getElementById 'webgl-canvas'
