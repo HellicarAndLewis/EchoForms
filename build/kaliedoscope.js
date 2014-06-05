@@ -8,7 +8,8 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
 (function() {
   var Kaliedoscope, canvas, cgl, kk,
-    __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+    __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
+    __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
   Kaliedoscope = (function() {
     function Kaliedoscope() {
@@ -16,7 +17,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     }
 
     Kaliedoscope.prototype.loadAssets = function() {
-      var a, b, i, self, _genLoadAudio, _i, _loadVideo;
+      var a, b, i, self, _genLoadAudio, _i, _j, _loadVideo;
       a = function() {
         return console.log("Loaded: " + this.completed_items.length / this.items.length);
       };
@@ -52,7 +53,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
           }
         };
       });
-      _genLoadAudio = function(audio_url) {
+      _genLoadAudio = function(audio_url, attach, long) {
         var _loadAudioSample;
         return _loadAudioSample = new CoffeeGL.Loader.LoadItem(function() {
           var sound,
@@ -60,27 +61,32 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
           sound = new Howl({
             urls: [audio_url],
             onload: function() {
-              self.sounds.push(sound);
+              attach.push(sound);
               sound.playing = false;
               return _this.loaded();
             },
             onplay: function() {
-              return this.playing = true;
+              this.playing = true;
+              if (long) {
+                return self.sound_long_playing = true;
+              }
             },
             onend: function() {
-              return this.playing = false;
+              this.playing = false;
+              if (long) {
+                return self.sound_long_playing = false;
+              }
             }
           });
           return _loadAudioSample;
         });
       };
       this.lq.add(_loadVideo);
-      for (i = _i = 0; _i <= 30; i = ++_i) {
-        if (i > 9) {
-          this.lq.add(_genLoadAudio('/sound/sound0' + i + '.mp3'));
-        } else {
-          this.lq.add(_genLoadAudio('/sound/sound00' + i + '.mp3'));
-        }
+      for (i = _i = 0; _i <= 9; i = ++_i) {
+        this.lq.add(_genLoadAudio('/sound/long/sound00' + i + '.mp3', this.sounds_long, true));
+      }
+      for (i = _j = 0; _j <= 9; i = ++_j) {
+        this.lq.add(_genLoadAudio('/sound/short/sound00' + i + '.mp3', this.sounds_short, false));
       }
       return this.lq.start();
     };
@@ -88,24 +94,15 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     Kaliedoscope;
 
     Kaliedoscope.prototype.playSound = function() {
-      var choice, sound, x, y, _i, _len, _ref;
-      if (!this.mouse_over) {
-        return;
-      }
-      _ref = this.sounds;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        sound = _ref[_i];
-        if (sound.playing) {
-          sound.fadeOut();
+      var _ref, _ref1;
+      if (_ref = this.selected_tris, __indexOf.call(this.sound_long_triggers, _ref) >= 0) {
+        if (!this.sound_long_playing) {
+          this.sounds_long[Math.floor(Math.random() * this.sounds_long.length)].play();
         }
       }
-      x = Math.floor(((this.ray.x + 3.0) / 6.0) * 10);
-      y = Math.floor(((this.ray.y + 3.0) / 6.0) * 3);
-      choice = x + y;
-      if (choice >= 0 && choice < this.sounds.length) {
-        if (this.sound_current !== choice) {
-          this.sounds[choice].play();
-          return this.sound_current = choice;
+      if (this.selected_tris !== this.selected_tris_prev) {
+        if (_ref1 = this.selected_tris, __indexOf.call(this.sound_short_triggers, _ref1) >= 0) {
+          return this.sounds_short[Math.floor(Math.random() * this.sounds_short.length)].play();
         }
       }
     };
@@ -267,7 +264,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     };
 
     Kaliedoscope.prototype.init = function() {
-      var datg, r0,
+      var datg, i, r0, _i, _j,
         _this = this;
       this.plane_yres = 9;
       this.plane_xres = 21;
@@ -276,18 +273,27 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       this.ray = new CoffeeGL.Vec3(0, 0, 0);
       this.intersect_prev = new CoffeeGL.Vec3(0, 0, 0);
       this.intersect = new CoffeeGL.Vec3(0, 0, 0);
+      this.selected_tris = this.selected_tris_prev = -1;
       this.warp = {
         exponent: 1.4,
         force: 0.001,
         range: 1.0,
         falloff_factor: 1.0,
-        springiness: 0.01,
+        springiness: 0.005,
         springiness_exponent: 2.0,
         rot_speed: 4.0,
         spring_damping: 0.92
       };
-      this.sound_current = -1;
+      this.sound_long_playing = false;
       this.sound_on = false;
+      this.sound_long_triggers = [];
+      this.sound_short_triggers = [];
+      for (i = _i = 0; _i <= 55; i = ++_i) {
+        this.sound_long_triggers.push(Math.floor(Math.random() * this.plane.getNumTris()));
+      }
+      for (i = _j = 0; _j <= 100; i = ++_j) {
+        this.sound_short_triggers.push(Math.floor(Math.random() * this.plane.getNumTris()));
+      }
       this.video_node.brew({
         position_buffer_access: GL.DYNAMIC_DRAW,
         texcoord_buffer_access: GL.DYNAMIC_DRAW
@@ -300,7 +306,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         return _this.shader.setUniform3v("uMouseRay", new CoffeeGL.Vec3(0, 0, 0));
       });
       this.camera = new CoffeeGL.Camera.PerspCamera();
-      this.camera.pos.z = 4.8;
+      this.camera.pos.z = 3.8;
       this.camera.setViewport(CoffeeGL.Context.width, CoffeeGL.Context.height);
       this.video_node.add(this.camera);
       this.t = new CoffeeGL.TextureBase({
@@ -311,14 +317,15 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       GL.cullFace(GL.BACK);
       GL.enable(GL.DEPTH_TEST);
       this.video_ready = false;
-      this.sounds = [];
+      this.sounds_long = [];
+      this.sounds_short = [];
       this.loadAssets();
       datg = new dat.GUI();
       datg.remember(this);
       datg.add(this.warp, 'exponent', 1.0, 5.0);
       datg.add(this.warp, 'force', 0.0001, 0.01);
       datg.add(this.warp, 'range', 0.1, 5.0);
-      datg.add(this.warp, 'springiness', 0.0001, 1.0);
+      datg.add(this.warp, 'springiness', 0.0001, 0.01);
       datg.add(this.warp, 'spring_damping', 0.1, 1.0);
       datg.add(this.warp, 'rot_speed', 0.01, 10.0);
       datg.add(this, 'sound_on');
@@ -336,7 +343,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         this.t.update(this.video_element);
       }
       if (this.shader != null) {
-        this.shader.setUniform3v("uMouseRay", this.ray);
+        this.shader.setUniform1f("uClockTick", CoffeeGL.Context.contextTime);
       }
       this.morphPlane();
       this.video_node.rebrew({
@@ -362,15 +369,22 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     };
 
     Kaliedoscope.prototype.mouseMoved = function(event) {
-      var index, x, y;
+      var x, y;
       x = event.mouseX;
       y = event.mouseY;
       this.intersect_prev.copyFrom(this.intersect);
       this.rotateTexCoords();
       this.intersect.set(0, 0, 0);
-      index = CoffeeGL.Math.screenNodeHitTest(x, y, this.camera, this.video_node, this.intersect);
-      if (index !== -1) {
-        console.log(index);
+      this.selected_tris_prev = this.selected_tris;
+      this.selected_tris = CoffeeGL.Math.screenNodeHitTest(x, y, this.camera, this.video_node, this.intersect);
+      if (this.selected_tris !== -1) {
+        if (this.shader != null) {
+          this.shader.setUniform1f("uHighLight", 1.0);
+        }
+      } else {
+        if (this.shader != null) {
+          this.shader.setUniform1f("uHighLight", 0.0);
+        }
       }
       if (this.shader != null) {
         return this.shader.setUniform3v("uMousePos", this.intersect);

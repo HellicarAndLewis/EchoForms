@@ -61,56 +61,56 @@ class Kaliedoscope
           console.log "Video Loaded"
 
     # Return Audio Load Items
-    _genLoadAudio = (audio_url) ->
+    _genLoadAudio = (audio_url,attach,long) ->
 
       _loadAudioSample = new CoffeeGL.Loader.LoadItem () ->
         sound = new Howl {
           urls: [audio_url]
           onload : () =>
-            self.sounds.push sound
+            attach.push sound
             sound.playing = false
             @loaded()
 
           onplay : () ->
             @playing  = true
+            if long
+              self.sound_long_playing = true
 
           onend : () ->
             @playing  = false
+            if long
+              self.sound_long_playing = false
         }
 
         return _loadAudioSample
 
     @lq.add _loadVideo
 
-    for i in [0..30] 
-      if i > 9
-        @lq.add _genLoadAudio('/sound/sound0' + i + '.mp3')
-      else
-        @lq.add _genLoadAudio('/sound/sound00' + i + '.mp3')
+    # Long sounds
+    for i in [0..9] 
+      @lq.add _genLoadAudio('/sound/long/sound00' + i + '.mp3', @sounds_long, true)
+
+    # Short sounds
+    for i in [0..9] 
+      @lq.add _genLoadAudio('/sound/short/sound00' + i + '.mp3', @sounds_short, false)
+
 
     @lq.start()
     
   @
 
-  # Playing audio on roll over
+  
+  # Playing audio when a triangle is selected if it has a trigger
+
   playSound : () ->
-    if not @mouse_over
-      return
 
-    for sound in @sounds
-      if sound.playing
-        sound.fadeOut()
-
-    x = Math.floor( ((@ray.x + 3.0) / 6.0) * 10)
-    y = Math.floor( ((@ray.y + 3.0) / 6.0) * 3)
-
-    choice = x + y
-
-    if choice >= 0 && choice < @sounds.length
-      if @sound_current != choice
-        @sounds[choice].play()
-        @sound_current = choice
-
+    if @selected_tris in @sound_long_triggers
+      if not @sound_long_playing
+        @sounds_long[Math.floor(Math.random() * @sounds_long.length)].play()
+        
+    if @selected_tris != @selected_tris_prev
+      if @selected_tris in @sound_short_triggers
+        @sounds_short[Math.floor(Math.random() * @sounds_short.length)].play()
 
 
   # Setup the plane
@@ -306,6 +306,7 @@ class Kaliedoscope
     @ray = new CoffeeGL.Vec3 0,0,0
     @intersect_prev = new CoffeeGL.Vec3 0,0,0
     @intersect = new CoffeeGL.Vec3 0,0,0
+    @selected_tris = @selected_tris_prev = -1
 
     # Warp parameters
 
@@ -314,14 +315,23 @@ class Kaliedoscope
       force    : 0.001
       range     : 1.0
       falloff_factor : 1.0
-      springiness : 0.01
+      springiness : 0.005
       springiness_exponent : 2.0
       rot_speed : 4.0
       spring_damping : 0.92
 
     # Sound parameters
-    @sound_current = -1
+    @sound_long_playing = false
     @sound_on = false
+    @sound_long_triggers = []
+    @sound_short_triggers = []
+
+    for i in [0..55]
+      @sound_long_triggers.push Math.floor( Math.random() * @plane.getNumTris())
+
+    for i in [0..100]
+      @sound_short_triggers.push Math.floor( Math.random() * @plane.getNumTris())
+
 
     # Pre brew with correct dynamic flags
     @video_node.brew {position_buffer_access : GL.DYNAMIC_DRAW, texcoord_buffer_access : GL.DYNAMIC_DRAW} 
@@ -336,7 +346,7 @@ class Kaliedoscope
       @shader.setUniform3v "uMouseRay", new CoffeeGL.Vec3 0,0,0
 
     @camera = new CoffeeGL.Camera.PerspCamera()
-    @camera.pos.z = 4.8
+    @camera.pos.z = 3.8
     @camera.setViewport CoffeeGL.Context.width, CoffeeGL.Context.height
 
     @video_node.add @camera
@@ -347,12 +357,11 @@ class Kaliedoscope
     GL.cullFace(GL.BACK)
     GL.enable(GL.DEPTH_TEST)
 
-
     # Asset Loading
     @video_ready = false
-    @sounds = []
+    @sounds_long = []
+    @sounds_short = []
     @loadAssets()
-
 
     # GUI Setup
 
@@ -362,7 +371,7 @@ class Kaliedoscope
     datg.add(@warp,'exponent',1.0,5.0)
     datg.add(@warp,'force',0.0001,0.01)
     datg.add(@warp,'range',0.1,5.0)
-    datg.add(@warp,'springiness', 0.0001, 1.0)
+    datg.add(@warp,'springiness', 0.0001, 0.01)
     datg.add(@warp,'spring_damping', 0.1, 1.0)
     datg.add(@warp,'rot_speed', 0.01, 10.0)
     datg.add(@,'sound_on')
@@ -383,7 +392,7 @@ class Kaliedoscope
     
     @t.update @video_element if @video_ready
 
-    @shader.setUniform3v "uMouseRay", @ray if @shader?
+    @shader.setUniform1f "uClockTick", CoffeeGL.Context.contextTime if @shader?
 
     @morphPlane()
 
@@ -392,6 +401,8 @@ class Kaliedoscope
     @springBack()
 
     @playSound() if @sound_on
+
+
 
   draw : () ->
     
@@ -406,26 +417,25 @@ class Kaliedoscope
     @videoNodeTrans CoffeeGL.Context.width, CoffeeGL.Context.height
 
   mouseMoved : (event) ->
-    x = event.mouseX
+    x = event.mouseX # Why is this off? :S
     y = event.mouseY
 
-    #console.log x,y
-
     @intersect_prev.copyFrom @intersect 
-    #@ray = @camera.castRay x,y
-
-    #intersect_depth = CoffeeGL.Math.rayPlaneIntersect new CoffeeGL.Vec3(0,0,0), new CoffeeGL.Vec3(0,0,1), @camera.pos, @ray
-
-    #@intersect = CoffeeGL.Vec3.multScalar @ray, intersect_depth
-    #@intersect.add @camera.pos
-
+  
     @rotateTexCoords()
     
     @intersect.set 0,0,0
+
+    @selected_tris_prev = @selected_tris
     
-    index = CoffeeGL.Math.screenNodeHitTest(x,y,@camera,@video_node,@intersect)
-    if index != -1
-      console.log index
+    @selected_tris = CoffeeGL.Math.screenNodeHitTest(x,y,@camera,@video_node,@intersect)
+    if @selected_tris != -1
+      #console.log index
+      @shader.setUniform1f "uHighLight", 1.0 if @shader?
+    else
+      @shader.setUniform1f "uHighLight", 0.0 if @shader?
+
+
 
     @shader.setUniform3v "uMousePos", @intersect if @shader?
 
@@ -433,9 +443,9 @@ class Kaliedoscope
   mouseOver : (event) ->
     @mouse_over = true
 
-
   mouseOut : (event) ->
     @mouse_over = false
+
 
   mouseDown : (event) ->
     @mouse_pressed = true
