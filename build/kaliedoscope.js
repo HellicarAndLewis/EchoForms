@@ -111,7 +111,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     };
 
     Kaliedoscope.prototype.setupPlane = function() {
-      var i, idc, ids, idt, j, sstep, tcs, _i, _j, _ref, _ref1;
+      var i, idc, ids, idt, j, sstep, tcs, _i, _j, _k, _ref, _ref1;
       this.plane = new CoffeeGL.PlaneHexagonFlat(this.plane_xres, this.plane_yres);
       idt = 0;
       idc = 0;
@@ -138,10 +138,9 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
           if (ids > 2) {
             ids = 0;
           }
-          this.plane.c[idc++] = 0;
-          this.plane.c[idc++] = 0;
-          this.plane.c[idc++] = 0;
-          this.plane.c[idc++] = 0;
+          for (i = _k = 0; _k <= 3; i = ++_k) {
+            this.plane.c[idc++] = 0;
+          }
         }
       }
       return this.plane_base = JSON.parse(JSON.stringify(this.plane));
@@ -189,10 +188,10 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
           force = CoffeeGL.Vec3.sub(this.intersect, this.intersect_prev);
           force_dist = this.intersect.dist(this.intersect_prev);
           dd = np.dist(this.intersect);
-          if (force_dist > 0.001) {
+          if (force_dist > 0.01) {
             if (dd < this.warp.range) {
               force.normalize();
-              force.multScalar(0.01 * 1.0 / (dd * dd));
+              force.multScalar(this.warp.force * 1.0 / Math.pow(dd, this.warp.exponent));
               np.x = force.x;
               np.y = force.y;
               np.z = 0;
@@ -234,7 +233,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
             spring_force = CoffeeGL.Vec3.sub(bp, np);
             spring_dist = bp.dist(np);
             spring_force.normalize();
-            spring_force.multScalar(spring_dist * 0.01);
+            spring_force.multScalar(spring_dist * this.warp.springiness);
             ff.add(spring_force);
             ff.multScalar(this.warp.spring_damping);
             this.plane.c[idc] = ff.x;
@@ -279,10 +278,10 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       this.intersect = new CoffeeGL.Vec3(0, 0, 0);
       this.warp = {
         exponent: 1.4,
-        factor: 2.6,
+        force: 0.001,
         range: 1.0,
         falloff_factor: 1.0,
-        springiness: 0.3,
+        springiness: 0.01,
         springiness_exponent: 2.0,
         rot_speed: 4.0,
         spring_damping: 0.92
@@ -317,11 +316,10 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       datg = new dat.GUI();
       datg.remember(this);
       datg.add(this.warp, 'exponent', 1.0, 5.0);
-      datg.add(this.warp, 'factor', 0.001, 10.0);
+      datg.add(this.warp, 'force', 0.0001, 0.01);
       datg.add(this.warp, 'range', 0.1, 5.0);
-      datg.add(this.warp, 'falloff_factor', 0.01, 10.0);
-      datg.add(this.warp, 'springiness', 0.01, 5.0);
-      datg.add(this.warp, 'springiness_exponent', 0.1, 5.0);
+      datg.add(this.warp, 'springiness', 0.0001, 1.0);
+      datg.add(this.warp, 'spring_damping', 0.1, 1.0);
       datg.add(this.warp, 'rot_speed', 0.01, 10.0);
       datg.add(this, 'sound_on');
       CoffeeGL.Context.mouseMove.add(this.mouseMoved, this);
@@ -372,7 +370,10 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       this.intersect.set(0, 0, 0);
       index = CoffeeGL.Math.screenNodeHitTest(x, y, this.camera, this.video_node, this.intersect);
       if (index !== -1) {
-        return console.log(index);
+        console.log(index);
+      }
+      if (this.shader != null) {
+        return this.shader.setUniform3v("uMousePos", this.intersect);
       }
     };
 

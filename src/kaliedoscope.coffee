@@ -139,27 +139,24 @@ class Kaliedoscope
 
       for j in [0..@plane_xres-1]
 
-        # Spider on Crack function
-
         #r = Math.random()
 
         #if r > 0.7
         #  @plane.t[idt++] = tcs[ids].u * (1.0 - r)
         #  @plane.t[idt++] = tcs[ids].v * (1.0 - r)
         #else
-
         @plane.t[idt++] = tcs[ids].u
         @plane.t[idt++] = tcs[ids].v
+        
         ids++
 
         if ids > 2
           ids = 0
 
         # We use the colour part as the force part
-        @plane.c[idc++] = 0
-        @plane.c[idc++] = 0
-        @plane.c[idc++] = 0
-        @plane.c[idc++] = 0
+        for i in [0..3]
+          @plane.c[idc++] = 0
+
 
     @plane_base = JSON.parse(JSON.stringify(@plane)) # CoffeeGL Clone doesnt quite work
     
@@ -209,23 +206,14 @@ class Kaliedoscope
         force_dist = @intersect.dist @intersect_prev
 
         dd = np.dist @intersect
-        
+      
 
-        # Create a force on the vertices
-
-        #if dd < @warp.range
-
-        #  falloff = dd / @warp.range * @warp.falloff_factor
-          #Math.pow(dir_dist,@warp.exponent) * @warp.factor * falloff)
-          #tp.add( dir.multScalar(dir_dist * 0.001))
-         
-
-        if force_dist > 0.001
+        if force_dist > 0.01
 
           if dd < @warp.range
 
             force.normalize()
-            force.multScalar(0.01 * 1.0/(dd * dd) )
+            force.multScalar(@warp.force * 1.0 / Math.pow(dd,@warp.exponent) )
 
             np.x = force.x
             np.y = force.y
@@ -271,8 +259,8 @@ class Kaliedoscope
         spring_dist = bp.dist np
 
         spring_force.normalize()
-        #Math.pow(spring_dist,@warp.springiness_exponent) * @warp.springiness
-        spring_force.multScalar(spring_dist * 0.01) 
+      
+        spring_force.multScalar(spring_dist * @warp.springiness) 
 
     
         # Resolve the forces - spring and mouse
@@ -323,10 +311,10 @@ class Kaliedoscope
 
     @warp =
       exponent  : 1.4
-      factor    : 2.6
+      force    : 0.001
       range     : 1.0
       falloff_factor : 1.0
-      springiness : 0.3
+      springiness : 0.01
       springiness_exponent : 2.0
       rot_speed : 4.0
       spring_damping : 0.92
@@ -372,11 +360,10 @@ class Kaliedoscope
     datg.remember(@)
 
     datg.add(@warp,'exponent',1.0,5.0)
-    datg.add(@warp,'factor',0.001,10.0)
+    datg.add(@warp,'force',0.0001,0.01)
     datg.add(@warp,'range',0.1,5.0)
-    datg.add(@warp,'falloff_factor',0.01,10.0)
-    datg.add(@warp,'springiness', 0.01, 5.0)
-    datg.add(@warp,'springiness_exponent', 0.1, 5.0)
+    datg.add(@warp,'springiness', 0.0001, 1.0)
+    datg.add(@warp,'spring_damping', 0.1, 1.0)
     datg.add(@warp,'rot_speed', 0.01, 10.0)
     datg.add(@,'sound_on')
 
@@ -422,6 +409,8 @@ class Kaliedoscope
     x = event.mouseX
     y = event.mouseY
 
+    #console.log x,y
+
     @intersect_prev.copyFrom @intersect 
     #@ray = @camera.castRay x,y
 
@@ -437,6 +426,8 @@ class Kaliedoscope
     index = CoffeeGL.Math.screenNodeHitTest(x,y,@camera,@video_node,@intersect)
     if index != -1
       console.log index
+
+    @shader.setUniform3v "uMousePos", @intersect if @shader?
 
 
   mouseOver : (event) ->

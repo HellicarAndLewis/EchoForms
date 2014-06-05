@@ -4,6 +4,7 @@ precision highp float;
 {{ShaderLibrary.Basic}}
 {{ShaderLibrary.BasicCamera}}
 {{ShaderLibrary.VertexTexCoord}}
+{{ShaderLibrary.VertexColour}}
 
 attribute vec3 aVertexBarycentre;
 
@@ -30,8 +31,11 @@ precision highp float;
 
 {{ShaderLibrary.Basic}}
 {{ShaderLibrary.VertexTexCoord}}
+{{ShaderLibrary.VertexColour}}
 
 uniform sampler2D uSampler;
+
+uniform vec3 uMousePos;
 
 varying vec3 vBarycentre;
 
@@ -40,10 +44,17 @@ float edgeFactor(){
     vec3 a3 = smoothstep(vec3(0.0), d*1.5, vBarycentre);
     return min(min(a3.x, a3.y), a3.z);
 }
+
+float distFactor() {
+  if ( distance(vPosition.xyz, uMousePos) <= 2.0)
+    return 1.0;
+  return 0.0;
+}
   
 void main(void) {
-  //gl_FragColor = texture2D(uSampler, vTexCoord);
+  gl_FragColor = texture2D(uSampler, vTexCoord);
   vec3 tt = texture2D(uSampler, vTexCoord).rgb;
+
   gl_FragColor.rgb = mix(vec3(1.0), tt, edgeFactor());
   gl_FragColor.a = 1.0;
 }
