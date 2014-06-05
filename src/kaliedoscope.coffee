@@ -87,11 +87,11 @@ class Kaliedoscope
     @lq.add _loadVideo
 
     # Long sounds
-    for i in [0..9] 
+    for i in [0..8] 
       @lq.add _genLoadAudio('/sound/long/sound00' + i + '.mp3', @sounds_long, true)
 
     # Short sounds
-    for i in [0..9] 
+    for i in [0..7] 
       @lq.add _genLoadAudio('/sound/short/sound00' + i + '.mp3', @sounds_short, false)
 
 
@@ -125,7 +125,8 @@ class Kaliedoscope
 
     # Appears to be a bug at certain resolutions of the hex plane where the texture
     # isnt mapped right? :S
-    @plane = new CoffeeGL.PlaneHexagonFlat @plane_xres, @plane_yres 
+    @plane = new CoffeeGL.PlaneHexagonFlat @plane_xres, @plane_yres
+    @plane_face = new CoffeeGL.PlaneHexagonFlat @plane_xres, @plane_yres, false
 
     idt = 0
     idc = 0
@@ -139,12 +140,7 @@ class Kaliedoscope
 
       for j in [0..@plane_xres-1]
 
-        #r = Math.random()
-
-        #if r > 0.7
-        #  @plane.t[idt++] = tcs[ids].u * (1.0 - r)
-        #  @plane.t[idt++] = tcs[ids].v * (1.0 - r)
-        #else
+      
         @plane.t[idt++] = tcs[ids].u
         @plane.t[idt++] = tcs[ids].v
         
@@ -281,9 +277,17 @@ class Kaliedoscope
         idt += 3
         idc += 4
 
+  # Copy from the plane to the plane_face to keep things as close as possible :S
+
+  copyToFace : () ->
+    idp = 0
+    for i in [0..@plane.indices.length-1]
+      idx = @plane.indices[i]
+      for j in [0..2]
+        @plane_face.p[ idp++ ] = @plane.p[idx * 3 + j]
 
   # Transformation for the geometry based on width and height
-  videoNodeTrans : (w=1,h=1) ->
+  geomTrans : (w=1,h=1) ->
 
     @video_node.matrix.identity()
     @video_node.matrix.rotate  new CoffeeGL.Vec3(1,0,0), CoffeeGL.PI / 2
@@ -293,7 +297,8 @@ class Kaliedoscope
 
     @video_node.matrix.scale new CoffeeGL.Vec3 xfactor,1,yfactor
 
- 
+    @face_node.matrix.copyFrom @video_node.matrix
+
   init : () ->
     
     # Plane
@@ -301,6 +306,7 @@ class Kaliedoscope
     @plane_xres = 21
     @setupPlane()
     @video_node = new CoffeeGL.Node @plane
+    @face_node = new CoffeeGL.Node @plane_face
 
     # Intersections
     @ray = new CoffeeGL.Vec3 0,0,0
@@ -311,14 +317,14 @@ class Kaliedoscope
     # Warp parameters
 
     @warp =
-      exponent  : 1.4
-      force    : 0.001
-      range     : 1.0
+      exponent  : 2
+      force    : 0.004
+      range     : 2.0
       falloff_factor : 1.0
-      springiness : 0.005
+      springiness : 0.0068
       springiness_exponent : 2.0
       rot_speed : 4.0
-      spring_damping : 0.92
+      spring_damping : 0.91
 
     # Sound parameters
     @sound_long_playing = false
@@ -335,27 +341,35 @@ class Kaliedoscope
 
     # Pre brew with correct dynamic flags
     @video_node.brew {position_buffer_access : GL.DYNAMIC_DRAW, texcoord_buffer_access : GL.DYNAMIC_DRAW} 
+    @face_node.brew {position_buffer_access : GL.DYNAMIC_DRAW} 
 
-    @videoNodeTrans CoffeeGL.Context.width, CoffeeGL.Context.height
+    @geomTrans CoffeeGL.Context.width, CoffeeGL.Context.height
 
     r0 = new CoffeeGL.Request('/basic_texture.glsl')
     r0.get (data) =>
       @shader = new CoffeeGL.Shader(data)
-      #@video_node.add @shader
-      @shader.bind()
-      @shader.setUniform3v "uMouseRay", new CoffeeGL.Vec3 0,0,0
+      @video_node.add @shader
+     
+    r1 = new CoffeeGL.Request('/face.glsl')
+    r1.get (data) =>
+      @shader_face = new CoffeeGL.Shader(data)
+      @face_node.add @shader_face
 
     @camera = new CoffeeGL.Camera.PerspCamera()
     @camera.pos.z = 3.8
     @camera.setViewport CoffeeGL.Context.width, CoffeeGL.Context.height
 
     @video_node.add @camera
+    @face_node.add @camera
    
     @t = new CoffeeGL.TextureBase({ width: 240, height: 134 })
 
-    GL.enable(GL.CULL_FACE)
-    GL.cullFace(GL.BACK)
-    GL.enable(GL.DEPTH_TEST)
+    #GL.enable(GL.CULL_FACE)
+    #GL.cullFace(GL.BACK)
+    #GL.enable(GL.DEPTH_TEST)
+
+    GL.enable(GL.BLEND)
+    GL.blendFunc(GL.SRC_ALPHA, GL.ONE_MINUS_SRC_ALPHA)
 
     # Asset Loading
     @video_ready = false
@@ -375,7 +389,6 @@ class Kaliedoscope
     datg.add(@warp,'spring_damping', 0.1, 1.0)
     datg.add(@warp,'rot_speed', 0.01, 10.0)
     datg.add(@,'sound_on')
-
     
     # Setup mouse listener
     CoffeeGL.Context.mouseMove.add @mouseMoved, @
@@ -391,25 +404,29 @@ class Kaliedoscope
   update : (dt) ->
     
     @t.update @video_element if @video_ready
+    if @shader?
+      @shader.bind()
+      @shader.setUniform1f "uClockTick", CoffeeGL.Context.contextTime 
 
-    @shader.setUniform1f "uClockTick", CoffeeGL.Context.contextTime if @shader?
+    if @shader_face?
+      @shader_face.bind()
+      @shader_face.setUniform1f "uClockTick", CoffeeGL.Context.contextTime 
 
     @morphPlane()
-
+    @copyToFace()
     @video_node.rebrew( { position_buffer : 0 , texcoord_buffer : 0})
-  
+    @face_node.rebrew( { position_buffer : 0 })
     @springBack()
-
     @playSound() if @sound_on
 
-
-
+    
   draw : () ->
     
     GL.clearColor(0.15, 0.15, 0.15, 1.0)
     GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT)
 
     @video_node.draw()
+    @face_node.draw()
 
   resize : () =>
     CoffeeGL.Context.resizeCanvas window.innerWidth, window.innerHeight
@@ -429,15 +446,28 @@ class Kaliedoscope
     @selected_tris_prev = @selected_tris
     
     @selected_tris = CoffeeGL.Math.screenNodeHitTest(x,y,@camera,@video_node,@intersect)
-    if @selected_tris != -1
-      #console.log index
-      @shader.setUniform1f "uHighLight", 1.0 if @shader?
-    else
-      @shader.setUniform1f "uHighLight", 0.0 if @shader?
+    
+    # Tidy this up - it sucks a bit ><
+    if @shader?
+      @shader.bind()
+      if @selected_tris != -1
+        #console.log index
+        @shader.setUniform1f "uHighLight", 1.0
+      else
+        @shader.setUniform1f "uHighLight", 0.0
+
+      @shader.setUniform3v "uMousePos", @intersect
 
 
-
-    @shader.setUniform3v "uMousePos", @intersect if @shader?
+    if @shader_face?
+      @shader_face.bind()
+      if @selected_tris != -1
+        #console.log index
+        @shader_face.setUniform1f "uHighLight", 1.0
+      else
+        @shader_face.setUniform1f "uHighLight", 0.0
+        
+      @shader_face.setUniform3v "uMousePos", @intersect
 
 
   mouseOver : (event) ->

@@ -3,9 +3,8 @@ precision highp float;
 
 {{ShaderLibrary.Basic}}
 {{ShaderLibrary.BasicCamera}}
-{{ShaderLibrary.VertexTexCoord}}
-{{ShaderLibrary.VertexColour}}
 
+{{ShaderLibrary.VertexColour}}
 
 attribute vec3 aVertexBarycentre;
 
@@ -13,11 +12,6 @@ varying vec3 vBarycentre;
 
 void main(void) {
 
-  /*vec4 actual_pos = uModelMatrix * vec4(aVertexPosition,1.0);
-  vec3 dir = uMouseRay - actual_pos.xyz;
-  dir = normalize(dir);
-  dir = dir * 0.1;
-  vec3 npos = aVertexPosition + dir;*/
 
   vBarycentre = aVertexBarycentre;
   vPosition = uModelMatrix * vec4(aVertexPosition, 1.0);
@@ -33,9 +27,6 @@ precision highp float;
 {{ShaderLibrary.VertexTexCoord}}
 {{ShaderLibrary.VertexColour}}
 {{ShaderLibrary.Noise}}
-
-
-uniform sampler2D uSampler;
 
 uniform vec3 uMousePos;
 uniform float uClockTick;
@@ -55,17 +46,17 @@ float edgeFactor(){
 
 float distFactor() {
   float dd = distance(vPosition.xyz, uMousePos);
-
   return length(vBarycentre) - pow(dd,3.0);
 }
   
 void main(void) {
-  vec3 tt = texture2D(uSampler, vTexCoord).rgb;
+  
+  float dd = distFactor();
 
-  //vec3 tt = vec3(0.0);
+  vec3 tc = mix(vec3(0.0), vec3(1.0),  dd * uHighLight);
 
-  vec3 tc = mix(vec3(0.0), vec3(1.0), distFactor() * uHighLight);
+  //gl_FragColor.rgb = mix(tc, tt, edgeFactor());
+  gl_FragColor.rgb = tc;
 
-  gl_FragColor.rgb = mix(tc, tt, edgeFactor());
-  gl_FragColor.a = 1.0;
+  gl_FragColor.a = 1.0 * dd;
 }
