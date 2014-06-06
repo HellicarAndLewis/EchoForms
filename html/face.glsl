@@ -12,7 +12,6 @@ varying vec3 vBarycentre;
 
 void main(void) {
 
-
   vBarycentre = aVertexBarycentre;
   vPosition = uModelMatrix * vec4(aVertexPosition, 1.0);
   gl_Position = uProjectionMatrix * uCameraMatrix * vPosition;
@@ -58,7 +57,7 @@ void main(void) {
   vec3 tc = mix(vec3(0.0), vec3(1.0),  dd * uHighLight);
 
   //gl_FragColor.rgb = mix(tc, tt, edgeFactor());
-  gl_FragColor.rgb = tc;
+  gl_FragColor.rgb = vColour.rgb;
 
-  gl_FragColor.a = vColour.a * 0.5;
+  gl_FragColor.a = vColour.a;
 }

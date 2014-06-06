@@ -17,12 +17,18 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     }
 
     Kaliedoscope.prototype.loadAssets = function() {
-      var a, b, i, self, _genLoadAudio, _i, _j, _loadVideo;
+      var a, b, i, self, _genLoadAudio, _i, _j, _loadVideo,
+        _this = this;
       a = function() {
-        return console.log("Loaded: " + this.completed_items.length / this.items.length);
+        var i, _i;
+        for (i = _i = 0; _i <= 10; i = ++_i) {
+          _this.loading_items.push(Math.floor(Math.random() * _this.plane.getNumTris()));
+        }
+        return console.log("Loaded: " + _this.lq.completed_items.length / _this.lq.items.length);
       };
       b = function() {
-        return console.log("Loaded All");
+        console.log("Loaded All");
+        return _this.state_ready = true;
       };
       this.lq = new CoffeeGL.Loader.LoadQueue(this, a, b);
       self = this;
@@ -302,6 +308,8 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     Kaliedoscope.prototype.init = function() {
       var datg, i, r0, r1, _i, _j,
         _this = this;
+      this.state_ready = false;
+      this.loading_items = [];
       this.plane_yres = 9;
       this.plane_xres = 21;
       this.setupPlane();
@@ -383,8 +391,54 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       return this.mouse_pressed = false;
     };
 
-    Kaliedoscope.prototype.update = function(dt) {
-      var i, idc, j, k, _i, _j, _k, _ref, _ref1, _ref2;
+    Kaliedoscope.prototype.updateFaceHighlight = function(idx) {
+      var i, idc, j, k, _i, _ref, _results;
+      idc = 0;
+      _results = [];
+      for (i = _i = 0, _ref = this.plane_yres - 1; 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
+        _results.push((function() {
+          var _j, _k, _ref1, _results1;
+          _results1 = [];
+          for (j = _j = 0, _ref1 = this.plane_xres - 1; 0 <= _ref1 ? _j <= _ref1 : _j >= _ref1; j = 0 <= _ref1 ? ++_j : --_j) {
+            for (k = _k = 0; _k <= 11; k = ++_k) {
+              if (idx === idc) {
+                this.plane_face.c[idc * 12 + k] += 0.08;
+              } else {
+                this.plane_face.c[idc * 12 + k] -= 0.01;
+              }
+              if (this.plane_face.c[idc * 12 + k] <= 0) {
+                this.plane_face.c[idc * 12 + k] = 0;
+              }
+              if (this.plane_face.c[idc * 12 + k] >= 1.0) {
+                this.plane_face.c[idc * 12 + k] = 1.0;
+              }
+            }
+            _results1.push(idc++);
+          }
+          return _results1;
+        }).call(this));
+      }
+      return _results;
+    };
+
+    Kaliedoscope.prototype.updateLoading = function(dt) {
+      var i, _i, _len, _ref;
+      if (this.shader_face != null) {
+        this.shader_face.bind();
+        this.shader_face.setUniform1f("uClockTick", CoffeeGL.Context.contextTime);
+        this.shader_face.setUniform1f("uHighLight", 1.0);
+      }
+      _ref = this.loading_items;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        i = _ref[_i];
+        this.updateFaceHighlight(i);
+      }
+      return this.face_node.rebrew({
+        colour_buffer: 0
+      });
+    };
+
+    Kaliedoscope.prototype.updateActual = function(dt) {
       if (this.video_ready) {
         this.t.update(this.video_element);
       }
@@ -398,17 +452,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       }
       this.morphPlane();
       this.copyToFace();
-      idc = 0;
-      for (i = _i = 0, _ref = this.plane_yres - 1; 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
-        for (j = _j = 0, _ref1 = this.plane_xres - 1; 0 <= _ref1 ? _j <= _ref1 : _j >= _ref1; j = 0 <= _ref1 ? ++_j : --_j) {
-          for (k = _k = 0; _k <= 11; k = ++_k) {
-            this.plane_face.c[idc * 12 + k] = (_ref2 = this.selected_tris === idc) != null ? _ref2 : {
-              1.0: 0.0
-            };
-          }
-          idc++;
-        }
-      }
+      this.updateFaceHighlight(this.selected_tris);
       this.video_node.rebrew({
         position_buffer: 0,
         texcoord_buffer: 0
@@ -423,11 +467,33 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       }
     };
 
-    Kaliedoscope.prototype.draw = function() {
+    Kaliedoscope.prototype.update = function(dt) {
+      if (this.state_ready) {
+        return this.updateActual();
+      } else {
+        return this.updateLoading();
+      }
+    };
+
+    Kaliedoscope.prototype.drawActual = function() {
       GL.clearColor(0.15, 0.15, 0.15, 1.0);
       GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
       this.video_node.draw();
       return this.face_node.draw();
+    };
+
+    Kaliedoscope.prototype.drawLoading = function() {
+      GL.clearColor(0.15, 0.15, 0.15, 1.0);
+      GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
+      return this.face_node.draw();
+    };
+
+    Kaliedoscope.prototype.draw = function() {
+      if (this.state_ready) {
+        return this.drawActual();
+      } else {
+        return this.drawLoading();
+      }
     };
 
     Kaliedoscope.prototype.resize = function() {

@@ -12,11 +12,16 @@ class Kaliedoscope
   # faces and things
   loadAssets : () ->
   
-    a = () -> 
-      console.log ( "Loaded: " + @completed_items.length / @items.length)
+    a = () =>
 
-    b = () ->
+      for i in [0..10]
+        @loading_items.push Math.floor(Math.random() * @plane.getNumTris())
+
+      console.log ( "Loaded: " + @lq.completed_items.length / @lq.items.length)
+
+    b = () =>
       console.log "Loaded All"
+      @state_ready = true
 
     @lq = new CoffeeGL.Loader.LoadQueue @, a, b
 
@@ -177,7 +182,7 @@ class Kaliedoscope
     for i in [0..@plane_yres-1]
       for j in [0..@plane_xres-1]
         
-        np.x = (@plane.t[idt] * 2.0 ) - 1
+        np.x = (@plane.t[idt] * 2.0 ) - 1 
         np.y = (@plane.t[idt+1] * 2.0) - 1
 
         rotm.multVec np
@@ -307,6 +312,10 @@ class Kaliedoscope
 
   init : () ->
     
+    # State
+    @state_ready = false
+    @loading_items = []
+
     # Plane
     @plane_yres = 9
     @plane_xres = 21
@@ -407,8 +416,41 @@ class Kaliedoscope
     @mouse_over = false
     @mouse_pressed = false
 
-  update : (dt) ->
-    
+  # Given a face, make it lighter
+  updateFaceHighlight : (idx) ->
+     # Update the colour buffer for selection
+    idc = 0
+    for i in [0..@plane_yres-1]
+      for j in [0..@plane_xres-1]
+        for k in [0..11]
+            if idx == idc
+              @plane_face.c[idc * 12 + k ] += 0.08
+            else
+              @plane_face.c[idc * 12 + k ] -= 0.01
+
+            if @plane_face.c[idc * 12 + k ] <= 0
+              @plane_face.c[idc * 12 + k ] = 0
+
+            if @plane_face.c[idc * 12 + k ] >= 1.0
+              @plane_face.c[idc * 12 + k ] = 1.0
+        idc++ 
+
+  updateLoading : (dt) ->
+
+    if @shader_face?
+      @shader_face.bind()
+      @shader_face.setUniform1f "uClockTick", CoffeeGL.Context.contextTime 
+      @shader_face.setUniform1f "uHighLight", 1.0
+
+    #if Math.random() > 0.1
+    for i in @loading_items
+      @updateFaceHighlight i
+
+    @face_node.rebrew( { colour_buffer: 0})
+
+
+  updateActual : (dt) ->
+
     @t.update @video_element if @video_ready
     if @shader?
       @shader.bind()
@@ -421,28 +463,40 @@ class Kaliedoscope
     @morphPlane()
     @copyToFace()
 
-    # Update the colour buffer for selection
-    idc = 0
-    for i in [0..@plane_yres-1]
-      for j in [0..@plane_xres-1]
-        for k in [0..11]
-            @plane_face.c[idc * 12 + k ] = @selected_tris == idc ? 1.0 : 0.0
-        idc++
+    @updateFaceHighlight(@selected_tris)
 
-    
     @video_node.rebrew( { position_buffer : 0 , texcoord_buffer : 0})
     @face_node.rebrew( { position_buffer : 0 , colour_buffer: 0})
     @springBack()
     @playSound() if @sound_on
 
-    
-  draw : () ->
-    
+
+  update : (dt) ->  
+    if @state_ready
+      @updateActual()
+    else
+      @updateLoading()
+
+  # Loaded and running
+  drawActual : () ->
     GL.clearColor(0.15, 0.15, 0.15, 1.0)
     GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT)
-
     @video_node.draw()
     @face_node.draw()
+
+  # draw the loading screen
+  drawLoading : () ->  
+    GL.clearColor(0.15, 0.15, 0.15, 1.0)
+    GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT)
+    @face_node.draw()
+
+  # Main Draw Loop
+  draw : () ->
+    if @state_ready
+      @drawActual()
+    else
+      @drawLoading()
+
 
   resize : () =>
     CoffeeGL.Context.resizeCanvas window.innerWidth, window.innerHeight
@@ -451,7 +505,7 @@ class Kaliedoscope
 
   mouseMoved : (event) ->
     x = event.mouseX # Why is this off? :S
-    y = event.mouseY
+    y = event.mouseY 
 
     @intersect_prev.copyFrom @intersect 
   
