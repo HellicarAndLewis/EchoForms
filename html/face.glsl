@@ -31,6 +31,7 @@ precision highp float;
 uniform vec3 uMousePos;
 uniform float uClockTick;
 uniform float uHighLight;
+uniform int   uChosenIndex;
 
 varying vec3 vBarycentre;
 
@@ -47,6 +48,7 @@ float edgeFactor(){
 float distFactor() {
   float dd = distance(vPosition.xyz, uMousePos);
   return length(vBarycentre) - pow(dd,3.0);
+
 }
   
 void main(void) {
@@ -58,5 +60,5 @@ void main(void) {
   //gl_FragColor.rgb = mix(tc, tt, edgeFactor());
   gl_FragColor.rgb = tc;
 
-  gl_FragColor.a = 1.0 * dd;
+  gl_FragColor.a = vColour.a * 0.5;
 }

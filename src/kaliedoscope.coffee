@@ -140,7 +140,6 @@ class Kaliedoscope
 
       for j in [0..@plane_xres-1]
 
-      
         @plane.t[idt++] = tcs[ids].u
         @plane.t[idt++] = tcs[ids].v
         
@@ -153,9 +152,18 @@ class Kaliedoscope
         for i in [0..3]
           @plane.c[idc++] = 0
 
-
     @plane_base = JSON.parse(JSON.stringify(@plane)) # CoffeeGL Clone doesnt quite work
+
+    # Set the colours of plane_face to zeroes
     
+    idc = 0
+   
+    for i in [0..@plane_yres-1]
+      for j in [0..@plane_xres-1]
+        for k in [0..11]
+            @plane_face.c[idc * 12 + k ] = 0
+        idc++
+  
 
   # when we mvoe the mouse, lets rotate the tex coords as well
   rotateTexCoords : () ->
@@ -203,7 +211,6 @@ class Kaliedoscope
 
         dd = np.dist @intersect
       
-
         if force_dist > 0.01
 
           if dd < @warp.range
@@ -258,7 +265,6 @@ class Kaliedoscope
       
         spring_force.multScalar(spring_dist * @warp.springiness) 
 
-    
         # Resolve the forces - spring and mouse
         ff.add spring_force
 
@@ -341,7 +347,7 @@ class Kaliedoscope
 
     # Pre brew with correct dynamic flags
     @video_node.brew {position_buffer_access : GL.DYNAMIC_DRAW, texcoord_buffer_access : GL.DYNAMIC_DRAW} 
-    @face_node.brew {position_buffer_access : GL.DYNAMIC_DRAW} 
+    @face_node.brew {position_buffer_access : GL.DYNAMIC_DRAW, colour_buffer_access: GL.DYNAMIC_DRAW} 
 
     @geomTrans CoffeeGL.Context.width, CoffeeGL.Context.height
 
@@ -414,8 +420,18 @@ class Kaliedoscope
 
     @morphPlane()
     @copyToFace()
+
+    # Update the colour buffer for selection
+    idc = 0
+    for i in [0..@plane_yres-1]
+      for j in [0..@plane_xres-1]
+        for k in [0..11]
+            @plane_face.c[idc * 12 + k ] = @selected_tris == idc ? 1.0 : 0.0
+        idc++
+
+    
     @video_node.rebrew( { position_buffer : 0 , texcoord_buffer : 0})
-    @face_node.rebrew( { position_buffer : 0 })
+    @face_node.rebrew( { position_buffer : 0 , colour_buffer: 0})
     @springBack()
     @playSound() if @sound_on
 
@@ -468,6 +484,7 @@ class Kaliedoscope
         @shader_face.setUniform1f "uHighLight", 0.0
         
       @shader_face.setUniform3v "uMousePos", @intersect
+      @shader_face.setUniform1i "uChosenIndex", @selected_tris
 
 
   mouseOver : (event) ->

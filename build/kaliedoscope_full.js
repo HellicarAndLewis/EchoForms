@@ -109,7 +109,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     };
 
     Kaliedoscope.prototype.setupPlane = function() {
-      var i, idc, ids, idt, j, sstep, tcs, _i, _j, _k, _ref, _ref1;
+      var i, idc, ids, idt, j, k, sstep, tcs, _i, _j, _k, _l, _ref, _ref1, _ref2, _results;
       this.plane = new CoffeeGL.PlaneHexagonFlat(this.plane_xres, this.plane_yres);
       this.plane_face = new CoffeeGL.PlaneHexagonFlat(this.plane_xres, this.plane_yres, false);
       idt = 0;
@@ -142,7 +142,23 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
           }
         }
       }
-      return this.plane_base = JSON.parse(JSON.stringify(this.plane));
+      this.plane_base = JSON.parse(JSON.stringify(this.plane));
+      idc = 0;
+      _results = [];
+      for (i = _l = 0, _ref2 = this.plane_yres - 1; 0 <= _ref2 ? _l <= _ref2 : _l >= _ref2; i = 0 <= _ref2 ? ++_l : --_l) {
+        _results.push((function() {
+          var _m, _n, _ref3, _results1;
+          _results1 = [];
+          for (j = _m = 0, _ref3 = this.plane_xres - 1; 0 <= _ref3 ? _m <= _ref3 : _m >= _ref3; j = 0 <= _ref3 ? ++_m : --_m) {
+            for (k = _n = 0; _n <= 11; k = ++_n) {
+              this.plane_face.c[idc * 12 + k] = 0;
+            }
+            _results1.push(idc++);
+          }
+          return _results1;
+        }).call(this));
+      }
+      return _results;
     };
 
     Kaliedoscope.prototype.rotateTexCoords = function() {
@@ -321,7 +337,8 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         texcoord_buffer_access: GL.DYNAMIC_DRAW
       });
       this.face_node.brew({
-        position_buffer_access: GL.DYNAMIC_DRAW
+        position_buffer_access: GL.DYNAMIC_DRAW,
+        colour_buffer_access: GL.DYNAMIC_DRAW
       });
       this.geomTrans(CoffeeGL.Context.width, CoffeeGL.Context.height);
       r0 = new CoffeeGL.Request('/basic_texture.glsl');
@@ -368,6 +385,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     };
 
     Kaliedoscope.prototype.update = function(dt) {
+      var i, idc, j, k, _i, _j, _k, _ref, _ref1, _ref2;
       if (this.video_ready) {
         this.t.update(this.video_element);
       }
@@ -381,12 +399,24 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       }
       this.morphPlane();
       this.copyToFace();
+      idc = 0;
+      for (i = _i = 0, _ref = this.plane_yres - 1; 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
+        for (j = _j = 0, _ref1 = this.plane_xres - 1; 0 <= _ref1 ? _j <= _ref1 : _j >= _ref1; j = 0 <= _ref1 ? ++_j : --_j) {
+          for (k = _k = 0; _k <= 11; k = ++_k) {
+            this.plane_face.c[idc * 12 + k] = (_ref2 = this.selected_tris === idc) != null ? _ref2 : {
+              1.0: 0.0
+            };
+          }
+          idc++;
+        }
+      }
       this.video_node.rebrew({
         position_buffer: 0,
         texcoord_buffer: 0
       });
       this.face_node.rebrew({
-        position_buffer: 0
+        position_buffer: 0,
+        colour_buffer: 0
       });
       this.springBack();
       if (this.sound_on) {
@@ -432,7 +462,8 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         } else {
           this.shader_face.setUniform1f("uHighLight", 0.0);
         }
-        return this.shader_face.setUniform3v("uMousePos", this.intersect);
+        this.shader_face.setUniform3v("uMousePos", this.intersect);
+        return this.shader_face.setUniform1i("uChosenIndex", this.selected_tris);
       }
     };
 
