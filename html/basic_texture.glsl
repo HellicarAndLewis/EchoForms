@@ -34,7 +34,6 @@ precision highp float;
 {{ShaderLibrary.VertexColour}}
 {{ShaderLibrary.Noise}}
 
-
 uniform sampler2D uSampler;
 
 uniform vec3 uMousePos;
@@ -44,12 +43,16 @@ uniform float uHighLight;
 varying vec3 vBarycentre;
 
 float edgeFactor(){
-    float noize = snoise( vec3(uClockTick, vPosition.x, vPosition.y) * 0.01 );
-    vec3 d = fwidth(vBarycentre * noize);
-    
-    noize = 1.0 + snoise( vec3(uClockTick, uMousePos.x, vPosition.y) * 0.01 );
 
-    vec3 a3 = smoothstep(vec3(0.0), d * 1.5 * noize, vBarycentre);
+    float xstep = gl_FragCoord.x - vPosition.x * 10.0;
+    float ystep = gl_FragCoord.y - vPosition.y * 10.0;
+
+    float noize = snoise( vec3(0, xstep, ystep) * 0.1 );
+    vec3 d = fwidth(vBarycentre * noize);
+
+    noize = 1.0 + snoise( vec3(0, vPosition.x, vPosition.y) * 0.01 );
+
+    vec3 a3 = smoothstep(vec3(0.0), d * 1.5 * noize, vBarycentre );
     return min(min(a3.x, a3.y), a3.z);
 }
 

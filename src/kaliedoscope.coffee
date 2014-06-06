@@ -11,11 +11,19 @@ class Kaliedoscope
   # Simple loading queue - We need to add some funky functions for the loading of
   # faces and things
   loadAssets : () ->
+
   
     a = () =>
 
       for i in [0..10]
-        @loading_items.push Math.floor(Math.random() * @plane.getNumTris())
+        tt =  Math.floor(Math.random() * @colour_palette.length)
+
+        item =
+          target : @colour_palette[tt]
+          colour : new CoffeeGL.Colour.RGBA.BLACK()
+          idx : Math.floor(Math.random() * @plane.getNumTris())
+
+        @loading_items.push item
 
       console.log ( "Loaded: " + @lq.completed_items.length / @lq.items.length)
 
@@ -89,14 +97,37 @@ class Kaliedoscope
 
         return _loadAudioSample
 
+    _loadShaderDepth = new CoffeeGL.Loader.LoadItem () ->
+
+      r2 = new CoffeeGL.Request('/depth.glsl')
+      r2.get (data) =>
+        self.shader_depth = new CoffeeGL.Shader(data)
+        @loaded()
+      
+    _loadShaderDOF = new CoffeeGL.Loader.LoadItem () ->
+      r3 = new CoffeeGL.Request('/depth_of_field.glsl')
+      r3.get (data) =>
+        self.shader_dof = new CoffeeGL.Shader(data)
+        @loaded()
+
+    _loadShaderBlur = new CoffeeGL.Loader.LoadItem () ->
+      r4 = new CoffeeGL.Request('/blur.glsl')
+      r4.get (data) =>
+        self.shader_blur = new CoffeeGL.Shader(data)
+        @loaded()
+
+
     @lq.add _loadVideo
+    @lq.add _loadShaderDepth
+    @lq.add _loadShaderDOF
+    @lq.add _loadShaderBlur
 
     # Long sounds
-    for i in [0..8] 
-      @lq.add _genLoadAudio('/sound/long/sound00' + i + '.mp3', @sounds_long, true)
+    #for i in [0..8] 
+    #  @lq.add _genLoadAudio('/sound/long/sound00' + i + '.mp3', @sounds_long, true)
 
     # Short sounds
-    for i in [0..7] 
+    for i in [0..5] 
       @lq.add _genLoadAudio('/sound/short/sound00' + i + '.mp3', @sounds_short, false)
 
 
@@ -134,6 +165,7 @@ class Kaliedoscope
     @plane_face = new CoffeeGL.PlaneHexagonFlat @plane_xres, @plane_yres, false
 
     idt = 0
+    idp = 0
     idc = 0
     tcs = [ {u:0.0, v:0.0}, {u:0.5, v:1.0}, {u:1.0, v:0.0} ]
     sstep = [0,1,2]
@@ -145,9 +177,18 @@ class Kaliedoscope
 
       for j in [0..@plane_xres-1]
 
-        @plane.t[idt++] = tcs[ids].u
-        @plane.t[idt++] = tcs[ids].v
+        # A little noise to offset the tex coords
+        tx = (2.0 * Math.random() - 1)
+        ty = (2.0 * Math.random() - 1)
+
+        @plane.t[idt++] = tcs[ids].u + ( @noise.simplex2(tx,ty) * 0.25)
+        @plane.t[idt++] = tcs[ids].v + ( @noise.simplex2(tx,ty) * 0.25)
         
+        @plane.p[idp++] += (@noise.simplex2(tx,ty) * 0.02)
+        idp++
+        @plane.p[idp++] += (@noise.simplex2(tx,ty) * 0.02)
+
+
         ids++
 
         if ids > 2
@@ -182,6 +223,11 @@ class Kaliedoscope
     for i in [0..@plane_yres-1]
       for j in [0..@plane_xres-1]
         
+        tx = (Math.random() * 2.0 -1) * 0.1
+        ty = (Math.random() * 2.0 -1) * 0.1
+
+        noize = @noise.simplex2 @intersect.x + tx, @intersect.y + ty
+
         np.x = (@plane.t[idt] * 2.0 ) - 1 
         np.y = (@plane.t[idt+1] * 2.0) - 1
 
@@ -189,6 +235,27 @@ class Kaliedoscope
 
         @plane.t[idt++] = (np.x + 1) / 2
         @plane.t[idt++] = (np.y + 1) / 2
+
+
+  # using some noise apply some random force
+  naturalForce : () ->
+    np = new CoffeeGL.Vec3 0,0,0
+    idt = 0
+    idc = 0
+    for i in [0..@plane_yres-1]
+      for j in [0..@plane_xres-1]
+        if Math.random() > @warp.natural_rate
+          np.x = @plane.p[idt++]
+          np.y = @plane.p[idt++]
+          np.z = @plane.p[idt++]
+
+          #np.add @intersect
+
+          noize = @noise.simplex2 np.x * 1.5, np.y * 1.5
+
+          @plane.c[idc+1] += noize * @warp.natural_force
+        idc += 4
+
 
   # We do this in CPU space as there is no real speed issue
   morphPlane : () ->
@@ -316,6 +383,16 @@ class Kaliedoscope
     @state_ready = false
     @loading_items = []
 
+    # Noise
+    @noise = new CoffeeGL.Noise.Noise()
+    @noise.setSeed(Math.random())
+
+    # Colours
+    @colour_palette = [ new CoffeeGL.Colour.RGBA(237,28,36),  new CoffeeGL.Colour.RGBA(242,101,34),
+     new CoffeeGL.Colour.RGBA(255,222,23), new CoffeeGL.Colour.RGBA(141,198,63), 
+     new CoffeeGL.Colour.RGBA(39,170,225), new CoffeeGL.Colour.RGBA(149,39,143) ]
+  
+
     # Plane
     @plane_yres = 9
     @plane_xres = 21
@@ -329,8 +406,28 @@ class Kaliedoscope
     @intersect = new CoffeeGL.Vec3 0,0,0
     @selected_tris = @selected_tris_prev = -1
 
-    # Warp parameters
+    # Post effects
+    @screen_node = new CoffeeGL.Node new CoffeeGL.Quad()
+   
+    # Depth of Field Parameters
+    @dof_params =
+      focal_distance : 3.78
+      focal_range : 0.02
+   
+    # FBOs
+    @fbo_depth = new CoffeeGL.Fbo CoffeeGL.Context.width, CoffeeGL.Context.height
+    @fbo_depth.texture.unit = 1
 
+    # Colour Buffer
+    @fbo_colour = new CoffeeGL.Fbo CoffeeGL.Context.width, CoffeeGL.Context.height 
+    @fbo_colour.texture.unit = 0
+
+    # Blur buffer can be smaller to get extra blur for free if we want
+    @fbo_blur = new CoffeeGL.Fbo CoffeeGL.Context.width, CoffeeGL.Context.height
+    @fbo_blur.texture.unit = 2
+
+
+    # Warp parameters
     @warp =
       exponent  : 2
       force    : 0.004
@@ -340,6 +437,15 @@ class Kaliedoscope
       springiness_exponent : 2.0
       rot_speed : 4.0
       spring_damping : 0.91
+      natural_rate : 0.9
+      natural_force : 0.002
+
+    # hightlight parameters
+
+    @highLight = 
+      speed_in : 0.08
+      speed_out : 0.01
+      alpha_scalar : 0.75
 
     # Sound parameters
     @sound_long_playing = false
@@ -347,8 +453,8 @@ class Kaliedoscope
     @sound_long_triggers = []
     @sound_short_triggers = []
 
-    for i in [0..55]
-      @sound_long_triggers.push Math.floor( Math.random() * @plane.getNumTris())
+    #for i in [0..55]
+    #  @sound_long_triggers.push Math.floor( Math.random() * @plane.getNumTris())
 
     for i in [0..100]
       @sound_short_triggers.push Math.floor( Math.random() * @plane.getNumTris())
@@ -363,12 +469,12 @@ class Kaliedoscope
     r0 = new CoffeeGL.Request('/basic_texture.glsl')
     r0.get (data) =>
       @shader = new CoffeeGL.Shader(data)
-      @video_node.add @shader
      
     r1 = new CoffeeGL.Request('/face.glsl')
     r1.get (data) =>
       @shader_face = new CoffeeGL.Shader(data)
-      @face_node.add @shader_face
+      @shader_face.bind()
+      @shader_face.setUniform1f "uAlphaScalar", @highLight.alpha_scalar
 
     @camera = new CoffeeGL.Camera.PerspCamera()
     @camera.pos.z = 3.8
@@ -403,8 +509,17 @@ class Kaliedoscope
     datg.add(@warp,'springiness', 0.0001, 0.01)
     datg.add(@warp,'spring_damping', 0.1, 1.0)
     datg.add(@warp,'rot_speed', 0.01, 10.0)
+    datg.add(@warp,'natural_rate', 0.1, 1.0)
+    datg.add(@warp,'natural_force', 0.0001, 0.01)
     datg.add(@,'sound_on')
-    
+    datg.add(@highLight,'speed_in', 0.001, 0.1)
+    datg.add(@highLight,'speed_out', 0.001, 0.1)
+    datg.add(@highLight, 'alpha_scalar',0.1,1.0)
+
+    datg.add(@dof_params,'focal_range', 0.001, 1.0)
+    datg.add(@dof_params, 'focal_distance',0.1,10.0)
+       
+
     # Setup mouse listener
     CoffeeGL.Context.mouseMove.add @mouseMoved, @
     CoffeeGL.Context.mouseOut.add @mouseOut, @
@@ -424,9 +539,9 @@ class Kaliedoscope
       for j in [0..@plane_xres-1]
         for k in [0..11]
             if idx == idc
-              @plane_face.c[idc * 12 + k ] += 0.08
+              @plane_face.c[idc * 12 + k ] += @highLight.speed_in
             else
-              @plane_face.c[idc * 12 + k ] -= 0.01
+              @plane_face.c[idc * 12 + k ] -= @highLight.speed_out
 
             if @plane_face.c[idc * 12 + k ] <= 0
               @plane_face.c[idc * 12 + k ] = 0
@@ -435,19 +550,42 @@ class Kaliedoscope
               @plane_face.c[idc * 12 + k ] = 1.0
         idc++ 
 
+  # Update Face Colour - used in Loading -  stays loaded - colour
+
+  updateFaceColour : (idx, colour) ->
+    idc = 0
+    for i in [0..@plane_yres-1]
+      for j in [0..@plane_xres-1]
+        for k in [0..2]
+          if idx == idc
+            @plane_face.c[idc * 12 + (k * 4) ] = colour.r
+            @plane_face.c[idc * 12 + (k * 4) + 1] = colour.g
+            @plane_face.c[idc * 12 + (k * 4) + 2] = colour.b
+            @plane_face.c[idc * 12 + (k * 4) + 3] = colour.a
+        idc++
+
   updateLoading : (dt) ->
 
     if @shader_face?
       @shader_face.bind()
       @shader_face.setUniform1f "uClockTick", CoffeeGL.Context.contextTime 
-      @shader_face.setUniform1f "uHighLight", 1.0
+      @shader_face.setUniform1f "uAlphaScalar", 1.0
 
     #if Math.random() > 0.1
     for i in @loading_items
-      @updateFaceHighlight i
+
+      tc = i.colour
+      tt = i.target
+
+      tc.r += @highLight.speed_in * tt.r if tc.r < tt.r
+      tc.g += @highLight.speed_in * tt.g if tc.g < tt.g
+      tc.b += @highLight.speed_in * tt.b if tc.b < tt.b
+      tc.a += @highLight.speed_in * tt.a if tc.a < tt.a
+
+      @updateFaceColour i.idx, tc
+     
 
     @face_node.rebrew( { colour_buffer: 0})
-
 
   updateActual : (dt) ->
 
@@ -458,8 +596,11 @@ class Kaliedoscope
 
     if @shader_face?
       @shader_face.bind()
-      @shader_face.setUniform1f "uClockTick", CoffeeGL.Context.contextTime 
+      @shader_face.setUniform1f "uClockTick", CoffeeGL.Context.contextTime
+      @shader_face.setUniform1f "uAlphaScalar", @highLight.alpha_scalar
 
+    @naturalForce()
+     
     @morphPlane()
     @copyToFace()
 
@@ -481,14 +622,72 @@ class Kaliedoscope
   drawActual : () ->
     GL.clearColor(0.15, 0.15, 0.15, 1.0)
     GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT)
-    @video_node.draw()
-    @face_node.draw()
+
+    if @shader_depth?
+      @fbo_depth.bind()
+      @fbo_depth.clear(new CoffeeGL.Colour.RGBA.WHITE())
+      @shader_depth.bind()
+      @video_node.draw()
+      @shader_depth.unbind()
+      @fbo_depth.unbind()
+
+ 
+    if @shader? and @shader_face?
+      @fbo_colour.bind()
+      @fbo_colour.clear(new CoffeeGL.Colour.RGBA.BLACK())
+      @shader.bind()
+      @video_node.draw()
+      @shader_face.bind()
+      @face_node.draw()
+      @fbo_colour.unbind()
+
+    if @shader_blur?
+      @fbo_blur.bind()
+      @fbo_blur.clear()
+      @shader_blur.bind()
+      @shader_blur.setUniform1i "uSampler",0
+      @shader_blur.setUniform1f "uResolution", 512
+      @shader_blur.setUniform1f "uRadius", 2
+      @shader_blur.setUniform2fv "uDir", [1.0, 0.0]
+
+      @fbo_colour.texture.bind()
+      @screen_node.draw()
+      @fbo_colour.texture.unbind()
+      @fbo_blur.unbind()
+
+
+    if @shader_dof?
+      @shader_dof.bind()
+      
+      @fbo_colour.texture.bind()
+      @fbo_depth.texture.bind()
+      @fbo_blur.texture.bind()
+
+      @shader_dof.setUniform1i "uSampler",0
+      @shader_dof.setUniform1i "uSamplerDepth", 1
+      @shader_dof.setUniform1i "uSamplerBlurred", 2
+      @shader_dof.setUniform1f "uNearPlane", @camera.near
+      @shader_dof.setUniform1f "uFarPlane", @camera.far
+
+      @shader_dof.setUniform1f "uFocalRange", @dof_params.focal_range
+      @shader_dof.setUniform1f "uFocalDistance", @dof_params.focal_distance
+
+      @screen_node.draw()
+
+      @fbo_depth.texture.unbind()
+      @fbo_colour.texture.unbind()
+      @fbo_blur.texture.unbind()
+      @shader_dof.unbind()
+
+
 
   # draw the loading screen
   drawLoading : () ->  
     GL.clearColor(0.15, 0.15, 0.15, 1.0)
     GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT)
-    @face_node.draw()
+    if @shader_face?
+      @shader_face.bind()
+      @face_node.draw()
 
   # Main Draw Loop
   draw : () ->
