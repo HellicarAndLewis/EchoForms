@@ -29,7 +29,7 @@ class Kaliedoscope
 
     b = () =>
       console.log "Loaded All"
-      @state_ready = true
+      @state_loaded = true
 
     @lq = new CoffeeGL.Loader.LoadQueue @, a, b
 
@@ -40,7 +40,7 @@ class Kaliedoscope
 
       self.video_element = document.getElementById "video"
       self.video_element.preload = "auto"
-      self.video_element.src = "/background.mp4"
+      self.video_element.src = "/Lexus-Sample01.mp4"
 
       self.video_element.addEventListener "ended", () ->
         self.video_element.currentTime = 0
@@ -125,6 +125,8 @@ class Kaliedoscope
     #for i in [0..8] 
     #  @lq.add _genLoadAudio('/sound/long/sound00' + i + '.mp3', @sounds_long, true)
 
+    @lq.add _genLoadAudio('/sound/long/Lexus.mp3', @sounds_long, true)
+
     # Short sounds
     for i in [0..5] 
       @lq.add _genLoadAudio('/sound/short/sound00' + i + '.mp3', @sounds_short, false)
@@ -139,9 +141,9 @@ class Kaliedoscope
 
   playSound : () ->
 
-    if @selected_tris in @sound_long_triggers
-      if not @sound_long_playing
-        @sounds_long[Math.floor(Math.random() * @sounds_long.length)].play()
+    #if @selected_tris in @sound_long_triggers
+    #  if not @sound_long_playing
+    #    @sounds_long[Math.floor(Math.random() * @sounds_long.length)].play()
         
     if @selected_tris != @selected_tris_prev
       if @selected_tris in @sound_short_triggers
@@ -345,11 +347,9 @@ class Kaliedoscope
         @plane.c[idc+1] = ff.y
         @plane.c[idc+2] = ff.z
 
-  
         @plane.p[idt] = np.x + ff.x
         @plane.p[idt+1] = np.y + ff.y
         @plane.p[idt+2] = np.z + ff.z
-
     
         idt += 3
         idc += 4
@@ -378,18 +378,27 @@ class Kaliedoscope
 
   init : () ->
     
+    CoffeeGL.makeTouchEmitter CoffeeGL.Context
+
     # State
     @state_ready = false
+    @state_loaded = false
     @loading_items = []
+    @loading_timeout = 0
+    @ready_fade_in = 0
+    @loading_time_limit = 3
+    @ready_fade_time = 3
 
     # Noise
     @noise = new CoffeeGL.Noise.Noise()
     @noise.setSeed(Math.random())
 
     # Colours
-    @colour_palette = [ new CoffeeGL.Colour.RGBA(237,28,36),  new CoffeeGL.Colour.RGBA(242,101,34),
-     new CoffeeGL.Colour.RGBA(255,222,23), new CoffeeGL.Colour.RGBA(141,198,63), 
-     new CoffeeGL.Colour.RGBA(39,170,225), new CoffeeGL.Colour.RGBA(149,39,143) ]
+    @colour_palette = [ new CoffeeGL.Colour.RGBA(31,169,225),  
+      new CoffeeGL.Colour.RGBA(34,54,107),
+      new CoffeeGL.Colour.RGBA(240,77,35), 
+      new CoffeeGL.Colour.RGBA(228,198,158), 
+      new CoffeeGL.Colour.RGBA(195,206,207) ]
   
 
     # Plane
@@ -440,7 +449,6 @@ class Kaliedoscope
       natural_force : 0.002
 
     # hightlight parameters
-
     @highLight = 
       speed_in : 0.08
       speed_out : 0.01
@@ -448,7 +456,7 @@ class Kaliedoscope
 
     # Sound parameters
     @sound_long_playing = false
-    @sound_on = false
+    @sound_on = true
     @sound_long_triggers = []
     @sound_short_triggers = []
 
@@ -528,6 +536,10 @@ class Kaliedoscope
     CoffeeGL.Context.mouseDown.add @mouseDown, @
     CoffeeGL.Context.mouseUp.add @mouseUp, @
 
+    # Setup touch listener
+    CoffeeGL.Context.touchSwipe.add @touchSwipe, @
+
+
     # Mouse states
     @mouse_over = false
     @mouse_pressed = false
@@ -584,9 +596,15 @@ class Kaliedoscope
       tc.a += @highLight.speed_in * tt.a if tc.a < tt.a
 
       @updateFaceColour i.idx, tc
-     
 
-    @face_node.rebrew( { colour_buffer: 0})
+    @naturalForce()
+     
+    #@morphPlane()
+    @copyToFace()
+    
+    @springBack()
+
+    @face_node.rebrew( { position_buffer : 0, colour_buffer: 0})
 
   updateActual : (dt) ->
 
@@ -594,6 +612,7 @@ class Kaliedoscope
     if @shader?
       @shader.bind()
       @shader.setUniform1f "uClockTick", CoffeeGL.Context.contextTime 
+      @shader.setUniform1f "uMasterAlpha", @ready_fade_in
 
     if @shader_face?
       @shader_face.bind()
@@ -607,17 +626,30 @@ class Kaliedoscope
 
     @updateFaceHighlight(@selected_tris)
 
-    @video_node.rebrew( { position_buffer : 0 , texcoord_buffer : 0})
-    @face_node.rebrew( { position_buffer : 0 , colour_buffer: 0})
+    @video_node.rebrew( { position_buffer : 0, texcoord_buffer : 0})
+    @face_node.rebrew( { position_buffer : 0, colour_buffer: 0})
     @springBack()
     @playSound() if @sound_on
 
 
-  update : (dt) ->  
+  update : (dt) -> 
+
     if @state_ready
+      @ready_fade_in += (dt / 1000) / @ready_fade_time
+      if @ready_fade_in > 1.0
+        @ready_fade_in = 1.0
+
       @updateActual()
     else
       @updateLoading()
+      @loading_timeout += dt/1000
+      if @state_loaded and @loading_timeout > @loading_time_limit
+        @state_ready = true
+        credits = document.getElementById 'credits'
+        credits.style.display = 'none'
+
+    if CoffeeGL.Context.ongoingTouches.length > 0
+      @mouse_over = false
 
   # Loaded and running
   drawActual : () ->
@@ -705,12 +737,10 @@ class Kaliedoscope
   resize : () =>
     CoffeeGL.Context.resizeCanvas window.innerWidth, window.innerHeight
     @camera.setViewport CoffeeGL.Context.width, CoffeeGL.Context.height
-    @videoNodeTrans CoffeeGL.Context.width, CoffeeGL.Context.height
+    @geomTrans CoffeeGL.Context.width, CoffeeGL.Context.height
 
-  mouseMoved : (event) ->
-    x = event.mouseX # Why is this off? :S
-    y = event.mouseY 
-
+  
+  interact : (x,y) ->
     @intersect_prev.copyFrom @intersect 
   
     @rotateTexCoords()
@@ -744,12 +774,29 @@ class Kaliedoscope
       @shader_face.setUniform1i "uChosenIndex", @selected_tris
 
 
+  mouseMoved : (event) ->
+    x = event.mouseX # Why is this off? :S
+    y = event.mouseY 
+    @interact(x,y)
+
+    if @mouse_pressed and @sound_on
+      if not @sounds_long[0].playing
+        @sounds_long[0].play()
+        @sounds_long[0].playing = true
+
+  touchSwipe : (event) ->
+    @mouse_over = true
+    @mouse_pressed = true
+
+    for touch in CoffeeGL.Context.ongoingTouches
+      @interact touch.ppos.x, touch.ppos.y
+
   mouseOver : (event) ->
     @mouse_over = true
 
   mouseOut : (event) ->
     @mouse_over = false
-
+    @selected_tris_prev = @selected_tris = -1
 
   mouseDown : (event) ->
     @mouse_pressed = true
@@ -758,6 +805,17 @@ class Kaliedoscope
     @mouse_pressed = false
     @intersect_prev.set 0,0,0
     @intersect.set 0,0,0 
+
+    if @sound_on
+      @sounds_long[0].fadeOut(1.0)
+      @sounds_long[0].playing = false
+
+
+# resize the credits div
+credits_resize = () ->
+  credits = document.getElementById 'credits'
+  credits.style.left = (window.innerWidth / 2 - credits.clientWidth / 2) + 'px'
+  credits.style.top = (window.innerHeight / 2 - credits.clientHeight / 2) + 'px'
 
 # Initial Size of the Canvas, pre WebGL
 canvas = document.getElementById 'webgl-canvas'
@@ -769,4 +827,6 @@ cgl = new CoffeeGL.App('webgl-canvas', kk, kk.init, kk.draw, kk.update)
 
 window.addEventListener('resize', kk.resize, false) if window?
 
+window.addEventListener('resize', credits_resize, false) if window?
 
+credits_resize()

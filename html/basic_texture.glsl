@@ -39,6 +39,7 @@ uniform sampler2D uSampler;
 uniform vec3 uMousePos;
 uniform float uClockTick;
 uniform float uHighLight;
+uniform float uMasterAlpha;
 
 varying vec3 vBarycentre;
 
@@ -65,10 +66,8 @@ float distFactor() {
 void main(void) {
   vec3 tt = texture2D(uSampler, vTexCoord).rgb;
 
-  //vec3 tt = vec3(0.0);
-
   vec3 tc = mix(vec3(0.0), vec3(1.0), distFactor() * uHighLight);
 
   gl_FragColor.rgb = mix(tc, tt, edgeFactor());
-  gl_FragColor.a = 1.0;
+  gl_FragColor.a = uMasterAlpha;
 }

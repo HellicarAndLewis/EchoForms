@@ -37,6 +37,28 @@
     border: none;
   }
 
+  @font-face {
+    font-family: 'Anaheim';
+    font-style: normal;
+    font-weight: 400;
+    src: local('Anaheim'), local('Anaheim-Regular'), url("/fonts/anaheim.woff") format('woff');
+  }
+
+  #credits {
+    background: rgba(0,0,0,0.5);
+    -moz-border-radius: 15px;
+    border-radius: 15px;
+    color: white;
+    width: 500px;
+    height: 200px;
+    position: absolute;
+    left: 0;
+    top: 0;
+    padding: 5px;
+    font-family: 'Anaheim', sans-serif;
+    text-align: center;
+  }
+
 </style>
 
 
@@ -56,10 +78,23 @@
   Your browser doesn't appear to support the HTML5 <code>&lt;video&gt;</code> element.
 </video>
 
+<div id="credits">
+<p><h3>"Echo Forms: an audiovisual Kaleidoscope"</h3></p>
+
+<p>
+Directed by Hellicar&Lewis<br/>
+Produced by Swoon<br/>
+Programming by Benjamin Blundell<br/>
+3D Design and Animation by Cai Matthews<br/>
+Photography and Editing by Robbie Newby<br/>
+</p>
+
+</div>
+
 <canvas id="webgl-canvas"></canvas>
 
 <script type="text/javascript" src="/js/dat.gui.min.js"></script>
-<script type="text/javascript" src="/js/coffeegl.js"></script>
+<script type="text/javascript" src="/js/coffeegl.min.js"></script>
 <script type="text/javascript" src="/js/jquery-2.1.1.min.js"></script>
 <script type="text/javascript" src="/js/bootstrap.min.js"></script>
 <script type="text/javascript" src="/js/howler.min.js"></script>

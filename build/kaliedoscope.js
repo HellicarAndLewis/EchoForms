@@ -7,7 +7,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
 
 (function() {
-  var Kaliedoscope, canvas, cgl, kk,
+  var Kaliedoscope, canvas, cgl, credits_resize, kk,
     __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
@@ -34,7 +34,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       };
       b = function() {
         console.log("Loaded All");
-        return _this.state_ready = true;
+        return _this.state_loaded = true;
       };
       this.lq = new CoffeeGL.Loader.LoadQueue(this, a, b);
       self = this;
@@ -42,7 +42,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         var _this = this;
         self.video_element = document.getElementById("video");
         self.video_element.preload = "auto";
-        self.video_element.src = "/background.mp4";
+        self.video_element.src = "/Lexus-Sample01.mp4";
         self.video_element.addEventListener("ended", function() {
           self.video_element.currentTime = 0;
           return self.video_element.play();
@@ -124,6 +124,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       this.lq.add(_loadShaderDepth);
       this.lq.add(_loadShaderDOF);
       this.lq.add(_loadShaderBlur);
+      this.lq.add(_genLoadAudio('/sound/long/Lexus.mp3', this.sounds_long, true));
       for (i = _i = 0; _i <= 5; i = ++_i) {
         this.lq.add(_genLoadAudio('/sound/short/sound00' + i + '.mp3', this.sounds_short, false));
       }
@@ -133,14 +134,9 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     Kaliedoscope;
 
     Kaliedoscope.prototype.playSound = function() {
-      var _ref, _ref1;
-      if (_ref = this.selected_tris, __indexOf.call(this.sound_long_triggers, _ref) >= 0) {
-        if (!this.sound_long_playing) {
-          this.sounds_long[Math.floor(Math.random() * this.sounds_long.length)].play();
-        }
-      }
+      var _ref;
       if (this.selected_tris !== this.selected_tris_prev) {
-        if (_ref1 = this.selected_tris, __indexOf.call(this.sound_short_triggers, _ref1) >= 0) {
+        if (_ref = this.selected_tris, __indexOf.call(this.sound_short_triggers, _ref) >= 0) {
           return this.sounds_short[Math.floor(Math.random() * this.sounds_short.length)].play();
         }
       }
@@ -376,11 +372,17 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     Kaliedoscope.prototype.init = function() {
       var datg, i, r0, r1, _i,
         _this = this;
+      CoffeeGL.makeTouchEmitter(CoffeeGL.Context);
       this.state_ready = false;
+      this.state_loaded = false;
       this.loading_items = [];
+      this.loading_timeout = 0;
+      this.ready_fade_in = 0;
+      this.loading_time_limit = 3;
+      this.ready_fade_time = 3;
       this.noise = new CoffeeGL.Noise.Noise();
       this.noise.setSeed(Math.random());
-      this.colour_palette = [new CoffeeGL.Colour.RGBA(237, 28, 36), new CoffeeGL.Colour.RGBA(242, 101, 34), new CoffeeGL.Colour.RGBA(255, 222, 23), new CoffeeGL.Colour.RGBA(141, 198, 63), new CoffeeGL.Colour.RGBA(39, 170, 225), new CoffeeGL.Colour.RGBA(149, 39, 143)];
+      this.colour_palette = [new CoffeeGL.Colour.RGBA(31, 169, 225), new CoffeeGL.Colour.RGBA(34, 54, 107), new CoffeeGL.Colour.RGBA(240, 77, 35), new CoffeeGL.Colour.RGBA(228, 198, 158), new CoffeeGL.Colour.RGBA(195, 206, 207)];
       this.plane_yres = 9;
       this.plane_xres = 21;
       this.setupPlane();
@@ -419,7 +421,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         alpha_scalar: 0.75
       };
       this.sound_long_playing = false;
-      this.sound_on = false;
+      this.sound_on = true;
       this.sound_long_triggers = [];
       this.sound_short_triggers = [];
       for (i = _i = 0; _i <= 100; i = ++_i) {
@@ -482,6 +484,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       CoffeeGL.Context.mouseOver.add(this.mouseOver, this);
       CoffeeGL.Context.mouseDown.add(this.mouseDown, this);
       CoffeeGL.Context.mouseUp.add(this.mouseUp, this);
+      CoffeeGL.Context.touchSwipe.add(this.touchSwipe, this);
       this.mouse_over = false;
       return this.mouse_pressed = false;
     };
@@ -567,7 +570,11 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         }
         this.updateFaceColour(i.idx, tc);
       }
+      this.naturalForce();
+      this.copyToFace();
+      this.springBack();
       return this.face_node.rebrew({
+        position_buffer: 0,
         colour_buffer: 0
       });
     };
@@ -579,6 +586,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       if (this.shader != null) {
         this.shader.bind();
         this.shader.setUniform1f("uClockTick", CoffeeGL.Context.contextTime);
+        this.shader.setUniform1f("uMasterAlpha", this.ready_fade_in);
       }
       if (this.shader_face != null) {
         this.shader_face.bind();
@@ -604,10 +612,24 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     };
 
     Kaliedoscope.prototype.update = function(dt) {
+      var credits;
       if (this.state_ready) {
-        return this.updateActual();
+        this.ready_fade_in += (dt / 1000) / this.ready_fade_time;
+        if (this.ready_fade_in > 1.0) {
+          this.ready_fade_in = 1.0;
+        }
+        this.updateActual();
       } else {
-        return this.updateLoading();
+        this.updateLoading();
+        this.loading_timeout += dt / 1000;
+        if (this.state_loaded && this.loading_timeout > this.loading_time_limit) {
+          this.state_ready = true;
+          credits = document.getElementById('credits');
+          credits.style.display = 'none';
+        }
+      }
+      if (CoffeeGL.Context.ongoingTouches.length > 0) {
+        return this.mouse_over = false;
       }
     };
 
@@ -698,13 +720,10 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     Kaliedoscope.prototype.resize = function() {
       CoffeeGL.Context.resizeCanvas(window.innerWidth, window.innerHeight);
       this.camera.setViewport(CoffeeGL.Context.width, CoffeeGL.Context.height);
-      return this.videoNodeTrans(CoffeeGL.Context.width, CoffeeGL.Context.height);
+      return this.geomTrans(CoffeeGL.Context.width, CoffeeGL.Context.height);
     };
 
-    Kaliedoscope.prototype.mouseMoved = function(event) {
-      var x, y;
-      x = event.mouseX;
-      y = event.mouseY;
+    Kaliedoscope.prototype.interact = function(x, y) {
       this.intersect_prev.copyFrom(this.intersect);
       this.rotateTexCoords();
       this.intersect.set(0, 0, 0);
@@ -731,12 +750,39 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       }
     };
 
+    Kaliedoscope.prototype.mouseMoved = function(event) {
+      var x, y;
+      x = event.mouseX;
+      y = event.mouseY;
+      this.interact(x, y);
+      if (this.mouse_pressed && this.sound_on) {
+        if (!this.sounds_long[0].playing) {
+          this.sounds_long[0].play();
+          return this.sounds_long[0].playing = true;
+        }
+      }
+    };
+
+    Kaliedoscope.prototype.touchSwipe = function(event) {
+      var touch, _i, _len, _ref, _results;
+      this.mouse_over = true;
+      this.mouse_pressed = true;
+      _ref = CoffeeGL.Context.ongoingTouches;
+      _results = [];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        touch = _ref[_i];
+        _results.push(this.interact(touch.ppos.x, touch.ppos.y));
+      }
+      return _results;
+    };
+
     Kaliedoscope.prototype.mouseOver = function(event) {
       return this.mouse_over = true;
     };
 
     Kaliedoscope.prototype.mouseOut = function(event) {
-      return this.mouse_over = false;
+      this.mouse_over = false;
+      return this.selected_tris_prev = this.selected_tris = -1;
     };
 
     Kaliedoscope.prototype.mouseDown = function(event) {
@@ -746,12 +792,23 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     Kaliedoscope.prototype.mouseUp = function(event) {
       this.mouse_pressed = false;
       this.intersect_prev.set(0, 0, 0);
-      return this.intersect.set(0, 0, 0);
+      this.intersect.set(0, 0, 0);
+      if (this.sound_on) {
+        this.sounds_long[0].fadeOut(1.0);
+        return this.sounds_long[0].playing = false;
+      }
     };
 
     return Kaliedoscope;
 
   })();
+
+  credits_resize = function() {
+    var credits;
+    credits = document.getElementById('credits');
+    credits.style.left = (window.innerWidth / 2 - credits.clientWidth / 2) + 'px';
+    return credits.style.top = (window.innerHeight / 2 - credits.clientHeight / 2) + 'px';
+  };
 
   canvas = document.getElementById('webgl-canvas');
 
@@ -766,5 +823,11 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
   if (typeof window !== "undefined" && window !== null) {
     window.addEventListener('resize', kk.resize, false);
   }
+
+  if (typeof window !== "undefined" && window !== null) {
+    window.addEventListener('resize', credits_resize, false);
+  }
+
+  credits_resize();
 
 }).call(this);
