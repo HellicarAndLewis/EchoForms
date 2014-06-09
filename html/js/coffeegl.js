@@ -1174,6 +1174,10 @@ http://www.flipcode.com/documents/matrfaq.html
       return this;
     };
 
+    Vec3.prototype.xy = function() {
+      return new Vec3(this.x, this.y);
+    };
+
     Vec3.prototype.length = function() {
       return Math.sqrt(this.lengthSquared());
     };
@@ -1342,6 +1346,10 @@ http://www.flipcode.com/documents/matrfaq.html
       this.z = a.z;
       this.w = a.w;
       return this;
+    };
+
+    Vec4.prototype.xyz = function() {
+      return new Vec3(this.x, this.y, this.z);
     };
 
     Vec4.prototype.equals = function(a) {
@@ -5204,16 +5212,24 @@ https://gist.github.com/eligrey/384583 - useful for changes to pos,look etc?
       this.i = new Matrix4();
       this.ip = new Matrix4();
       this.q = new Quaternion();
-      this.width = CoffeeGL.Context.width;
-      this.height = CoffeeGL.Context.width;
+      this.width = 1;
+      this.height = 1;
     }
 
-    Camera.prototype.update = function() {
-      var gl;
+    Camera.prototype.update = function(width, height) {
+      if (width == null) {
+        width = CoffeeGL.Context.width;
+      }
+      if (height == null) {
+        height = CoffeeGL.Context.height;
+      }
       this.m.lookAt(this.pos, this.look, this.up);
       this.i = Matrix4.invert(this.m);
-      gl = CoffeeGL.Context.gl;
-      gl.viewport(0, 0, this.width, this.height);
+      this.width = width;
+      this.height = height;
+      if (typeof GL !== "undefined" && GL !== null) {
+        GL.viewport(0, 0, this.width, this.height);
+      }
       return this;
     };
 
@@ -5288,17 +5304,16 @@ https://gist.github.com/eligrey/384583 - useful for changes to pos,look etc?
       }
     }
 
-    OrthoCamera.prototype.update = function(w, h) {
-      var gl;
-      if (w == null) {
-        w = CoffeeGL.Context.width;
-        h = CoffeeGL.Context.height;
+    OrthoCamera.prototype.update = function(width, height) {
+      if (width == null) {
+        width = CoffeeGL.Context.width;
       }
-      OrthoCamera.__super__.update.call(this);
-      this.p.makeOrtho(0, w, 0, h, this.near, this.far);
+      if (height == null) {
+        height = CoffeeGL.Context.height;
+      }
+      OrthoCamera.__super__.update.call(this, width, height);
+      this.p.makeOrtho(0, width, 0, height, this.near, this.far);
       this.ip = Matrix4.invert(this.p);
-      gl = CoffeeGL.Context.gl;
-      gl.viewport(0, 0, w, h);
       return this;
     };
 
@@ -5333,24 +5348,40 @@ https://gist.github.com/eligrey/384583 - useful for changes to pos,look etc?
       this.zoom_far = this.far;
     }
 
-    PerspCamera.prototype.update = function() {
-      PerspCamera.__super__.update.call(this);
-      this.p.makePerspective(this.angle, this.width / this.height, this.near, this.far);
+    PerspCamera.prototype.update = function(width, height) {
+      if (width == null) {
+        width = CoffeeGL.Context.width;
+      }
+      if (height == null) {
+        height = CoffeeGL.Context.height;
+      }
+      PerspCamera.__super__.update.call(this, width, height);
+      this.p.makePerspective(this.angle, width / height, this.near, this.far);
       this.ip = Matrix4.invert(this.p);
       return this;
     };
 
-    PerspCamera.prototype.castRay = function(sx, sy) {
-      var g, gl, pp;
-      if (CoffeeGL.Context != null) {
-        gl = CoffeeGL.Context.gl;
-        g = new Vec4((sx * 2) / CoffeeGL.Context.width - 1, 1 - (sy * 2) / CoffeeGL.Context.height, 1.0, 1.0);
-        pp = Matrix4.mult(Matrix4.invert(this.m), Matrix4.invert(this.p));
-        pp.multVec(g);
-        g.normalize();
-        return new Vec3(g.x, g.y, g.z);
+    PerspCamera.prototype.castRay = function(sx, sy, width, height) {
+      var far_ray, far_ray_w, farg, near_ray, near_ray_w, nearg;
+      if (width == null) {
+        width = CoffeeGL.Context.width;
       }
-      return new Vec3(0, 0, 0);
+      if (height == null) {
+        height = CoffeeGL.Context.height;
+      }
+      sy = height - sy;
+      near_ray = new Vec4((sx * 2.0) / width - 1.0, (sy * 2) / height - 1, -1.0, 1.0);
+      far_ray = new Vec4((sx * 2.0) / width - 1.0, (sy * 2) / height - 1, 1.0, 1.0);
+      this.ip.multVec(near_ray);
+      this.ip.multVec(far_ray);
+      nearg = 1.0 / near_ray.w;
+      near_ray_w = new Vec4(near_ray.x * nearg, near_ray.y * nearg, near_ray.z * nearg, 1.0);
+      farg = 1.0 / far_ray.w;
+      far_ray_w = new Vec4(far_ray.x * farg, far_ray.y * farg, far_ray.z * farg, 1.0);
+      far_ray_w.sub(near_ray_w);
+      far_ray_w.normalize();
+      this.i.multVec(far_ray_w);
+      return far_ray_w.normalize();
     };
 
     PerspCamera.prototype._zoom = function(dt) {
@@ -5453,18 +5484,14 @@ https://gist.github.com/eligrey/384583 - useful for changes to pos,look etc?
       return this;
     };
 
-    MousePerspCamera.prototype.update = function(w, h) {
-      var gl;
-      if (w == null) {
-        w = CoffeeGL.Context.width;
-        h = CoffeeGL.Context.height;
+    MousePerspCamera.prototype.update = function(width, height) {
+      if (width == null) {
+        width = CoffeeGL.Context.width;
       }
-      this.p.makePerspective(this.angle, w / h, this.near, this.far);
-      this.ip = Matrix4.invert(this.p);
-      this.m.lookAt(this.pos, this.look, this.up);
-      this.i = Matrix4.invert(this.m);
-      gl = CoffeeGL.Context.gl;
-      gl.viewport(0, 0, w, h);
+      if (height == null) {
+        height = CoffeeGL.Context.height;
+      }
+      MousePerspCamera.__super__.update.call(this, width, height);
       return this;
     };
 
@@ -7422,7 +7449,7 @@ This software is released under the MIT Licence. See LICENCE.txt for details
 
 
   screenNodeHitTest = function(sx, sy, camera, node, result, matrix) {
-    var a, b, c, c0, c1, c2, child, d, i, indexer, n, num_tris, plane_hit, ray, t0, t1, t2, _i, _j, _len, _ref2, _ref3, _ref4;
+    var a, ap, b, bp, c, child, cp, e1, e2, f, i, indexer, k, num_tris, p, q, ray, s, t, u, v, _i, _j, _len, _ref2, _ref3, _ref4;
     ray = camera.castRay(sx, sy);
     if (matrix == null) {
       matrix = new Matrix4();
@@ -7434,23 +7461,64 @@ This software is released under the MIT Licence. See LICENCE.txt for details
       for (i = _i = 0, _ref2 = num_tris - 1; 0 <= _ref2 ? _i <= _ref2 : _i >= _ref2; i = 0 <= _ref2 ? ++_i : --_i) {
         _ref3 = indexer(i), a = _ref3[0], b = _ref3[1], c = _ref3[2];
         matrix.multVec(a).multVec(b).multVec(c);
-        t0 = Vec3.sub(b, a).normalize();
-        t1 = Vec3.sub(c, a).normalize();
-        n = Vec3.cross(t0, t1);
-        n.normalize();
-        d = rayPlaneIntersect(a, n, camera.pos, ray);
-        plane_hit = ray.copy().multScalar(d);
-        plane_hit.add(camera.pos);
-        t0 = Vec3.sub(b, a).normalize();
-        t1 = Vec3.sub(c, b).normalize();
-        t2 = Vec3.sub(a, c).normalize();
-        c0 = Vec3.sub(plane_hit, a).dot(t0);
-        c1 = Vec3.sub(plane_hit, b).dot(t1);
-        c2 = Vec3.sub(plane_hit, c).dot(t2);
-        if ((c0 >= 0 && c1 >= 0 && c2 >= 0) || (c0 < 0 && c1 < 0 && c2 < 0)) {
-          result.copyFrom(plane_hit);
-          return i;
+        e1 = Vec3.sub(b, a);
+        e2 = Vec3.sub(c, a);
+        p = ray.xyz().cross(e2);
+        k = e1.dot(p);
+        f = 1.0 / k;
+        s = Vec3.sub(camera.pos, a);
+        u = s.dot(p) * f;
+        if (u < 0.0 || u > 1.0) {
+          continue;
         }
+        q = Vec3.cross(s, e1);
+        v = ray.xyz().dot(q) * f;
+        if (v < 0.0 || u + v > 1.0) {
+          continue;
+        }
+        t = e2.dot(q) * f;
+        ap = a.copy().multScalar(1 - u - v);
+        bp = b.copy().multScalar(u);
+        cp = c.copy().multScalar(v);
+        ap.add(bp).add(cp);
+        result.copyFrom(ap);
+        return i;
+        /*
+        # compute normal
+        
+        t0 = Vec3.sub(b,a).normalize()
+        t1 = Vec3.sub(c,a).normalize()
+        
+        n = Vec3.cross t0, t1
+        
+        n.normalize() # Needed?
+        
+        d = rayPlaneIntersect(a, n, camera.pos, ray.xyz())
+        plane_hit = ray.xyz().multScalar(d)
+        
+        # Plane_hit is distance along the ray from the camera, not in world
+        # space so add the position
+        plane_hit.add camera.pos
+        
+        # Now test around the edges 
+        # all dot products should have the same sign
+        
+        # TODO - There is a better way of doing this using barycentric co-ords in the
+        # realtime rendering book 
+        
+        t0 = Vec3.sub(b,a).normalize()
+        t1 = Vec3.sub(c,b).normalize()
+        t2 = Vec3.sub(a,c).normalize()
+        
+        c0 = Vec3.sub(plane_hit,a).dot(t0)
+        c1 = Vec3.sub(plane_hit,b).dot(t1)
+        c2 = Vec3.sub(plane_hit,c).dot(t2)
+        
+        if (c0 >= 0 and c1 >=0 and c2 >=0) or (c0 < 0 and c1 < 0 and c2 < 0)
+          result.copyFrom plane_hit
+          return i
+        */
+
       }
     }
     _ref4 = node.children;

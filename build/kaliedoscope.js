@@ -446,6 +446,8 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       });
       this.camera = new CoffeeGL.Camera.PerspCamera();
       this.camera.pos.z = 3.8;
+      this.camera.near = 0.001;
+      this.camera.far = 8.0;
       this.camera.setViewport(CoffeeGL.Context.width, CoffeeGL.Context.height);
       this.video_node.add(this.camera);
       this.face_node.add(this.camera);
@@ -612,54 +614,68 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     Kaliedoscope.prototype.drawActual = function() {
       GL.clearColor(0.15, 0.15, 0.15, 1.0);
       GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
-      if (this.shader_depth != null) {
-        this.fbo_depth.bind();
-        this.fbo_depth.clear(new CoffeeGL.Colour.RGBA.WHITE());
-        this.shader_depth.bind();
-        this.video_node.draw();
-        this.shader_depth.unbind();
-        this.fbo_depth.unbind();
-      }
-      if ((this.shader != null) && (this.shader_face != null)) {
-        this.fbo_colour.bind();
-        this.fbo_colour.clear(new CoffeeGL.Colour.RGBA.BLACK());
-        this.shader.bind();
-        this.video_node.draw();
-        this.shader_face.bind();
-        this.face_node.draw();
-        this.fbo_colour.unbind();
-      }
-      if (this.shader_blur != null) {
-        this.fbo_blur.bind();
-        this.fbo_blur.clear();
-        this.shader_blur.bind();
-        this.shader_blur.setUniform1i("uSampler", 0);
-        this.shader_blur.setUniform1f("uResolution", 512);
-        this.shader_blur.setUniform1f("uRadius", 2);
-        this.shader_blur.setUniform2fv("uDir", [1.0, 0.0]);
-        this.fbo_colour.texture.bind();
-        this.screen_node.draw();
-        this.fbo_colour.texture.unbind();
-        this.fbo_blur.unbind();
-      }
-      if (this.shader_dof != null) {
-        this.shader_dof.bind();
-        this.fbo_colour.texture.bind();
-        this.fbo_depth.texture.bind();
-        this.fbo_blur.texture.bind();
-        this.shader_dof.setUniform1i("uSampler", 0);
-        this.shader_dof.setUniform1i("uSamplerDepth", 1);
-        this.shader_dof.setUniform1i("uSamplerBlurred", 2);
-        this.shader_dof.setUniform1f("uNearPlane", this.camera.near);
-        this.shader_dof.setUniform1f("uFarPlane", this.camera.far);
-        this.shader_dof.setUniform1f("uFocalRange", this.dof_params.focal_range);
-        this.shader_dof.setUniform1f("uFocalDistance", this.dof_params.focal_distance);
-        this.screen_node.draw();
-        this.fbo_depth.texture.unbind();
-        this.fbo_colour.texture.unbind();
-        this.fbo_blur.texture.unbind();
-        return this.shader_dof.unbind();
-      }
+      /*
+      if @shader_depth?
+        @fbo_depth.bind()
+        @fbo_depth.clear(new CoffeeGL.Colour.RGBA.WHITE())
+        @shader_depth.bind()
+        @video_node.draw()
+        @shader_depth.unbind()
+        @fbo_depth.unbind()
+      
+       
+      if @shader? and @shader_face?
+        @fbo_colour.bind()
+        @fbo_colour.clear(new CoffeeGL.Colour.RGBA.BLACK())
+        @shader.bind()
+        @video_node.draw()
+        @shader_face.bind()
+        @face_node.draw()
+        @fbo_colour.unbind()
+      
+      if @shader_blur?
+        @fbo_blur.bind()
+        @fbo_blur.clear()
+        @shader_blur.bind()
+        @shader_blur.setUniform1i "uSampler",0
+        @shader_blur.setUniform1f "uResolution", 512
+        @shader_blur.setUniform1f "uRadius", 2
+        @shader_blur.setUniform2fv "uDir", [1.0, 0.0]
+      
+        @fbo_colour.texture.bind()
+        @screen_node.draw()
+        @fbo_colour.texture.unbind()
+        @fbo_blur.unbind()
+      
+      
+      if @shader_dof?
+        @shader_dof.bind()
+        
+        @fbo_colour.texture.bind()
+        @fbo_depth.texture.bind()
+        @fbo_blur.texture.bind()
+      
+        @shader_dof.setUniform1i "uSampler",0
+        @shader_dof.setUniform1i "uSamplerDepth", 1
+        @shader_dof.setUniform1i "uSamplerBlurred", 2
+        @shader_dof.setUniform1f "uNearPlane", @camera.near
+        @shader_dof.setUniform1f "uFarPlane", @camera.far
+      
+        @shader_dof.setUniform1f "uFocalRange", @dof_params.focal_range
+        @shader_dof.setUniform1f "uFocalDistance", @dof_params.focal_distance
+      
+        @screen_node.draw()
+      
+        @fbo_depth.texture.unbind()
+        @fbo_colour.texture.unbind()
+        @fbo_blur.texture.unbind()
+        @shader_dof.unbind()
+      */
+
+      this.shader.bind();
+      this.video_node.draw();
+      this.shader_face.bind();
+      return this.face_node.draw();
     };
 
     Kaliedoscope.prototype.drawLoading = function() {

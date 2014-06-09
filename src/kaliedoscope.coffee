@@ -34,7 +34,6 @@ class Kaliedoscope
     @lq = new CoffeeGL.Loader.LoadQueue @, a, b
 
     self = @
-
     # Load the major video
 
     _loadVideo = new CoffeeGL.Loader.LoadItem () ->
@@ -478,6 +477,8 @@ class Kaliedoscope
 
     @camera = new CoffeeGL.Camera.PerspCamera()
     @camera.pos.z = 3.8
+    @camera.near = 0.001
+    @camera.far = 8.0
     @camera.setViewport CoffeeGL.Context.width, CoffeeGL.Context.height
 
     @video_node.add @camera
@@ -623,6 +624,7 @@ class Kaliedoscope
     GL.clearColor(0.15, 0.15, 0.15, 1.0)
     GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT)
 
+    ###
     if @shader_depth?
       @fbo_depth.bind()
       @fbo_depth.clear(new CoffeeGL.Colour.RGBA.WHITE())
@@ -678,8 +680,11 @@ class Kaliedoscope
       @fbo_colour.texture.unbind()
       @fbo_blur.texture.unbind()
       @shader_dof.unbind()
-
-
+    ###
+    @shader.bind()
+    @video_node.draw()
+    @shader_face.bind()
+    @face_node.draw()
 
   # draw the loading screen
   drawLoading : () ->  
@@ -712,10 +717,9 @@ class Kaliedoscope
     
     @intersect.set 0,0,0
 
-    @selected_tris_prev = @selected_tris
-    
+    @selected_tris_prev = @selected_tris  
     @selected_tris = CoffeeGL.Math.screenNodeHitTest(x,y,@camera,@video_node,@intersect)
-    
+  
     # Tidy this up - it sucks a bit ><
     if @shader?
       @shader.bind()
