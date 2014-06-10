@@ -42,7 +42,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         var _this = this;
         self.video_element = document.getElementById("video");
         self.video_element.preload = "auto";
-        self.video_element.src = "/Lexus-Sample01.mp4";
+        self.video_element.src = "/H&L-Lexus-Edit01-final01.mp4";
         self.video_element.addEventListener("ended", function() {
           self.video_element.currentTime = 0;
           return self.video_element.play();
@@ -370,7 +370,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     };
 
     Kaliedoscope.prototype.init = function() {
-      var datg, i, r0, r1, _i,
+      var i, r0, r1, _i,
         _this = this;
       CoffeeGL.makeTouchEmitter(CoffeeGL.Context);
       this.state_ready = false;
@@ -405,20 +405,20 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       this.fbo_blur.texture.unit = 2;
       this.warp = {
         exponent: 2,
-        force: 0.004,
-        range: 2.0,
+        force: 0.004 + (Math.random() * 0.001),
+        range: 2.0 + (Math.random() * 0.5),
         falloff_factor: 1.0,
-        springiness: 0.0068,
+        springiness: 0.0019 + (Math.random() * 0.01),
         springiness_exponent: 2.0,
         rot_speed: 4.0,
-        spring_damping: 0.91,
+        spring_damping: 0.26 + (Math.random() * 0.5),
         natural_rate: 0.9,
         natural_force: 0.002
       };
       this.highLight = {
-        speed_in: 0.08,
-        speed_out: 0.01,
-        alpha_scalar: 0.75
+        speed_in: 0.1 + (-0.01 + Math.random() * 0.02),
+        speed_out: 0.009 + (Math.random() * 0.01),
+        alpha_scalar: 0.24 + (Math.random() * 0.01)
       };
       this.sound_long_playing = false;
       this.sound_on = true;
@@ -463,22 +463,27 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       this.sounds_long = [];
       this.sounds_short = [];
       this.loadAssets();
-      datg = new dat.GUI();
-      datg.remember(this);
-      datg.add(this.warp, 'exponent', 1.0, 5.0);
-      datg.add(this.warp, 'force', 0.0001, 0.01);
-      datg.add(this.warp, 'range', 0.1, 5.0);
-      datg.add(this.warp, 'springiness', 0.0001, 0.01);
-      datg.add(this.warp, 'spring_damping', 0.1, 1.0);
-      datg.add(this.warp, 'rot_speed', 0.01, 10.0);
-      datg.add(this.warp, 'natural_rate', 0.1, 1.0);
-      datg.add(this.warp, 'natural_force', 0.0001, 0.01);
-      datg.add(this, 'sound_on');
-      datg.add(this.highLight, 'speed_in', 0.001, 0.1);
-      datg.add(this.highLight, 'speed_out', 0.001, 0.1);
-      datg.add(this.highLight, 'alpha_scalar', 0.1, 1.0);
-      datg.add(this.dof_params, 'focal_range', 0.001, 1.0);
-      datg.add(this.dof_params, 'focal_distance', 0.1, 10.0);
+      /*
+      datg = new dat.GUI()
+      datg.remember(@)
+      
+      datg.add(@warp,'exponent',1.0,5.0)
+      datg.add(@warp,'force',0.0001,0.01)
+      datg.add(@warp,'range',0.1,5.0)
+      datg.add(@warp,'springiness', 0.0001, 0.01)
+      datg.add(@warp,'spring_damping', 0.1, 1.0)
+      datg.add(@warp,'rot_speed', 0.01, 10.0)
+      datg.add(@warp,'natural_rate', 0.1, 1.0)
+      datg.add(@warp,'natural_force', 0.0001, 0.01)
+      datg.add(@,'sound_on')
+      datg.add(@highLight,'speed_in', 0.001, 0.1)
+      datg.add(@highLight,'speed_out', 0.001, 0.1)
+      datg.add(@highLight, 'alpha_scalar',0.1,1.0)
+      
+      datg.add(@dof_params,'focal_range', 0.001, 1.0)
+      datg.add(@dof_params, 'focal_distance',0.1,10.0)
+      */
+
       CoffeeGL.Context.mouseMove.add(this.mouseMoved, this);
       CoffeeGL.Context.mouseOut.add(this.mouseOut, this);
       CoffeeGL.Context.mouseOver.add(this.mouseOver, this);
@@ -810,6 +815,11 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     return credits.style.top = (window.innerHeight / 2 - credits.clientHeight / 2) + 'px';
   };
 
+  window.notSupported = function() {
+    $('#webgl-canvas').remove();
+    return $('#credits').append('<h3>Your browser does not support WebGL</h3><p>Please upgrade to the latest version of Firefox, Chrome or Safari.</p>');
+  };
+
   canvas = document.getElementById('webgl-canvas');
 
   canvas.width = window.innerWidth;
@@ -818,7 +828,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
   kk = new Kaliedoscope();
 
-  cgl = new CoffeeGL.App('webgl-canvas', kk, kk.init, kk.draw, kk.update);
+  cgl = new CoffeeGL.App('webgl-canvas', kk, kk.init, kk.draw, kk.update, window.notSupported);
 
   if (typeof window !== "undefined" && window !== null) {
     window.addEventListener('resize', kk.resize, false);

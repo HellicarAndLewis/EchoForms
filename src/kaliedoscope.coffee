@@ -40,7 +40,7 @@ class Kaliedoscope
 
       self.video_element = document.getElementById "video"
       self.video_element.preload = "auto"
-      self.video_element.src = "/Lexus-Sample01.mp4"
+      self.video_element.src = "/H&L-Lexus-Edit01-final01.mp4"
 
       self.video_element.addEventListener "ended", () ->
         self.video_element.currentTime = 0
@@ -438,21 +438,21 @@ class Kaliedoscope
     # Warp parameters
     @warp =
       exponent  : 2
-      force    : 0.004
-      range     : 2.0
+      force    : 0.004 + (Math.random() * 0.001) 
+      range     : 2.0 + (Math.random() * 0.5) 
       falloff_factor : 1.0
-      springiness : 0.0068
+      springiness : 0.0019 + (Math.random() * 0.01) 
       springiness_exponent : 2.0
       rot_speed : 4.0
-      spring_damping : 0.91
+      spring_damping : 0.26 + (Math.random() * 0.5) 
       natural_rate : 0.9
-      natural_force : 0.002
+      natural_force : 0.002 
 
     # hightlight parameters
     @highLight = 
-      speed_in : 0.08
-      speed_out : 0.01
-      alpha_scalar : 0.75
+      speed_in : 0.1 + (-0.01 + Math.random() * 0.02) 
+      speed_out : 0.009 + (Math.random() * 0.01) 
+      alpha_scalar : 0.24 + (Math.random() * 0.01) 
 
     # Sound parameters
     @sound_long_playing = false
@@ -509,6 +509,7 @@ class Kaliedoscope
 
     # GUI Setup
 
+    ###
     datg = new dat.GUI()
     datg.remember(@)
 
@@ -527,7 +528,7 @@ class Kaliedoscope
 
     datg.add(@dof_params,'focal_range', 0.001, 1.0)
     datg.add(@dof_params, 'focal_distance',0.1,10.0)
-       
+    ###
 
     # Setup mouse listener
     CoffeeGL.Context.mouseMove.add @mouseMoved, @
@@ -817,13 +818,19 @@ credits_resize = () ->
   credits.style.left = (window.innerWidth / 2 - credits.clientWidth / 2) + 'px'
   credits.style.top = (window.innerHeight / 2 - credits.clientHeight / 2) + 'px'
 
+window.notSupported = () ->
+    
+  $('#webgl-canvas').remove()
+  $('#credits').append('<h3>Your browser does not support WebGL</h3><p>Please upgrade to the latest version of Firefox, Chrome or Safari.</p>')
+
+
 # Initial Size of the Canvas, pre WebGL
 canvas = document.getElementById 'webgl-canvas'
 canvas.width = window.innerWidth
 canvas.height = window.innerHeight
 
 kk = new Kaliedoscope()
-cgl = new CoffeeGL.App('webgl-canvas', kk, kk.init, kk.draw, kk.update)
+cgl = new CoffeeGL.App('webgl-canvas', kk, kk.init, kk.draw, kk.update, window.notSupported)
 
 window.addEventListener('resize', kk.resize, false) if window?
 
