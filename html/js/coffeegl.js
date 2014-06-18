@@ -113,13 +113,20 @@ This software is released under the MIT Licence. See LICENCE.txt for details
     var onEachFrame, _cb;
     if (root.webkitRequestAnimationFrame) {
       onEachFrame = function(context, run) {
-        var _cb;
+        var c, r, _cb, _i, _len, _ref, _ref1;
+        _ref = CoffeeGL.applications;
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          _ref1 = _ref[_i], c = _ref1[0], r = _ref1[1];
+          if (c === context && r === run) {
+            return;
+          }
+        }
         CoffeeGL.applications.push([context, run]);
         _cb = function() {
-          var app, _i, _len, _ref;
-          _ref = CoffeeGL.applications;
-          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-            app = _ref[_i];
+          var app, _j, _len1, _ref2;
+          _ref2 = CoffeeGL.applications;
+          for (_j = 0, _len1 = _ref2.length; _j < _len1; _j++) {
+            app = _ref2[_j];
             CoffeeGL.Context.switchContext(app[0]);
             app[1].call(app[0]);
           }
@@ -491,7 +498,7 @@ This software is released under the MIT Licence. See LICENCE.txt for details
 
 
 (function() {
-  var App, CoffeeGLError, CoffeeGLLog, CoffeeGLWarning, Colour, Matrix4, OrthoCamera, PerspCamera, Shader, Vec2, Vec3, Vec4, makeDebugContext, makeMouseEmitter, makeTouchEmitter, _ref, _ref1, _ref2, _ref3,
+  var App, CoffeeGLError, CoffeeGLLog, CoffeeGLWarning, Colour, Matrix4, OrthoCamera, PerspCamera, Shader, Vec2, Vec3, Vec4, makeDebugContext, makeKeyEmitter, makeMouseEmitter, makeTouchEmitter, removeKeyEmitter, removeMouseEmitter, removeTouchEmitter, _ref, _ref1, _ref2, _ref3,
     __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
   _ref = require("./math"), Vec2 = _ref.Vec2, Vec3 = _ref.Vec3, Vec4 = _ref.Vec4, Matrix4 = _ref.Matrix4;
@@ -500,7 +507,7 @@ This software is released under the MIT Licence. See LICENCE.txt for details
 
   _ref1 = require("./camera"), PerspCamera = _ref1.PerspCamera, OrthoCamera = _ref1.OrthoCamera;
 
-  _ref2 = require("./signal"), makeMouseEmitter = _ref2.makeMouseEmitter, makeTouchEmitter = _ref2.makeTouchEmitter;
+  _ref2 = require("./signal"), makeMouseEmitter = _ref2.makeMouseEmitter, makeTouchEmitter = _ref2.makeTouchEmitter, removeMouseEmitter = _ref2.removeMouseEmitter, removeTouchEmitter = _ref2.removeTouchEmitter, makeKeyEmitter = _ref2.makeKeyEmitter, removeKeyEmitter = _ref2.removeKeyEmitter;
 
   Colour = require("./colour").Colour;
 
@@ -512,54 +519,62 @@ This software is released under the MIT Licence. See LICENCE.txt for details
 
 
   App = (function() {
-    function App(element, app_context, init, draw, update, onError, debug) {
-      var cl,
-        _this = this;
-      this.app_context = app_context;
-      this.init = init;
-      this.draw = draw;
-      this.update = update;
-      this.onError = onError;
-      this.debug = debug != null ? debug : false;
+    function App(params) {
       this.getDelta = __bind(this.getDelta, this);
       this.run = __bind(this.run, this);
-      this.canvas = document.getElementById(element);
+      if (params.canvas == null) {
+        CoffeeGLError("No WebGL Canvas Provided");
+        return;
+      }
+      this.debug = params.debug == null ? false : params.debug;
+      this.app_context = params.context;
+      this.update = params.update;
+      this.draw = params.draw;
+      this.init = params.init;
+      this.user_shutdown = params.shutdown;
+      this.canvas = document.getElementById(params.canvas);
       if (!this.canvas) {
         CoffeeGLError("Trying to create an app on canvas that does not exist");
       }
-      if (!this._detectWebGL()) {
-        if (this.onError != null) {
-          this.onError();
-        }
-        CoffeeGLWarning("No WebGL Context Detected");
-        return;
-      }
       this.height = this.canvas.height;
       this.width = this.canvas.width;
-      makeMouseEmitter(this);
-      makeTouchEmitter(this);
-      this._pause = false;
-      cl = function(event) {
-        event.preventDefault();
-        return _this._initContext();
-      };
-      this.canvas.addEventListener("webglcontextlost", cl, false);
-      this._initContext();
-    }
-
-    App.prototype._detectWebGL = function() {
-      var name, names, _i, _len;
-      if (!!window.WebGLRenderingContext) {
-        names = ["experimental-webgl", "moz-webgl", "webgl", "webkit-3d"];
-        for (_i = 0, _len = names.length; _i < _len; _i++) {
-          name = names[_i];
-          this.gl = this.canvas.getContext(name);
-          if ((this.gl != null) && typeof this.gl.getParameter === "function") {
-            return true;
-          }
+      if (params.delay_start != null) {
+        if (params.delay_start) {
+          return this;
         }
       }
-      return false;
+      this.startup();
+      this;
+    }
+
+    App.prototype.startup = function() {
+      var cl,
+        _this = this;
+      cl = function(event) {
+        var idx, _i, _len, _ref4;
+        event.preventDefault();
+        idx = 0;
+        _ref4 = CoffeeGL.Applications.length;
+        for (_i = 0, _len = _ref4.length; _i < _len; _i++) {
+          idx = _ref4[_i];
+          if (CoffeeGL.Applications[i][0] = _this) {
+            break;
+          }
+        }
+        CoffeeGL.Applications.splice(idx, 1);
+        return _this.startup();
+      };
+      this.canvas.addEventListener("webglcontextlost", cl, false);
+      if (this.gl == null) {
+        this._initContext();
+      }
+      makeMouseEmitter(this);
+      makeTouchEmitter(this);
+      makeKeyEmitter(this);
+      this.resizeCanvas(this.canvas.width, this.canvas.height);
+      this._init();
+      this.canvas.focus();
+      return this.pause(false);
     };
 
     App.prototype._initContext = function() {
@@ -575,8 +590,6 @@ This software is released under the MIT Licence. See LICENCE.txt for details
             CoffeeGLLog("creating OpenGL debug context");
             makeDebugContext(this.gl);
           }
-          this.resizeCanvas(this.canvas.width, this.canvas.height);
-          this._init();
           return;
         }
       }
@@ -584,8 +597,9 @@ This software is released under the MIT Licence. See LICENCE.txt for details
         if (this.onError != null) {
           this.onError();
         }
-        CoffeeGLWarning("WebGL Not supported or context not found", "App");
+        CoffeeGLError("WebGL Not supported or context not found", "App");
       }
+      return this;
     };
 
     var BrowserDetect = {
@@ -769,12 +783,17 @@ This software is released under the MIT Licence. See LICENCE.txt for details
       }
       if (!this._pause) {
         this.startTime = Date.now();
-        return this.oldTime = this.startTime;
+        this.oldTime = this.startTime;
       }
+      this.pauseKeyEmitter(force);
+      this.pauseTouchEmitter(force);
+      this.pauseMouseEmitter(force);
+      return this;
     };
 
     App.prototype.pauseAfter = function(numframes) {
-      return this._framescounter = numframes;
+      this._framescounter = numframes;
+      return this;
     };
 
     App.prototype._init = function() {
@@ -800,16 +819,17 @@ This software is released under the MIT Licence. See LICENCE.txt for details
       if (context != null) {
         CoffeeGL.Context = context;
         if (typeof window !== "undefined" && window !== null) {
-          return window.GL = context.gl;
+          window.GL = context.gl;
         }
       } else {
         if (CoffeeGL.Context !== this) {
           CoffeeGL.Context = this;
           if (typeof window !== "undefined" && window !== null) {
-            return window.GL = this.gl;
+            window.GL = this.gl;
           }
         }
       }
+      return this;
     };
 
     App.prototype.resizeCanvas = function(width, height) {
@@ -819,9 +839,10 @@ This software is released under the MIT Licence. See LICENCE.txt for details
           this.width = width;
           this.height = height;
           this.canvas.width = width;
-          return this.canvas.height = height;
+          this.canvas.height = height;
         }
       }
+      return this;
     };
 
     App.prototype._draw = function() {
@@ -837,6 +858,17 @@ This software is released under the MIT Licence. See LICENCE.txt for details
       if (this.update != null) {
         return this.update.call(this.app_context, dt);
       }
+    };
+
+    App.prototype.shutdown = function() {
+      this.pause(true);
+      if (this.user_shutdown != null) {
+        this.user_shutdown.call(this.app_context);
+      }
+      removeMouseEmitter(this);
+      removeTouchEmitter(this);
+      removeKeyEmitter(this);
+      return this;
     };
 
     return App;
@@ -5008,7 +5040,7 @@ Texture Objects - uses the request object and callbacks. Is bound to a context
       return this;
     };
 
-    TextureBase.prototype.washUp = function() {
+    TextureBase.prototype.washup = function() {
       var gl;
       gl = CoffeeGL.Context.gl;
       gl.deleteTexture(this.texure);
@@ -5929,6 +5961,8 @@ This software is released under the MIT Licence. See LICENCE.txt for details
       }
       if (this.completed_items.length === this.items.length) {
         this.complete.dispatch();
+        this.items = [];
+        this.completed_items = [];
       }
       return this;
     };
@@ -5997,7 +6031,7 @@ and buffers
 
 
 (function() {
-  var CoffeeGLWarning, CoffeeGLWarningOnce, Cuboid, Matrix4, Quad, RGB, RGBA, Sphere, Triangle, TriangleMesh, Vec2, Vec3, Vertex, WebGLNodeDrawable, bufferSubData, createArrayBuffer, createElementBuffer, deleteBuffer, makeNodeDrawableGL, rebrew_typed, setDataBuffer, util, washup, _attribTypeCheckSet, _matchWithShader, _ref, _ref1, _ref2, _ref3, _ref4, _splitRole, _typeCheckSet,
+  var CoffeeGLWarning, CoffeeGLWarningOnce, Cuboid, Matrix4, Quad, RGB, RGBA, Sphere, Triangle, TriangleMesh, Vec2, Vec3, Vertex, WebGLNodeDrawable, bufferSubData, createArrayBuffer, createElementBuffer, deleteBuffer, makeNodeDrawableGL, rebrew_typed, setDataBuffer, util, _attribTypeCheckSet, _matchWithShader, _ref, _ref1, _ref2, _ref3, _ref4, _splitRole, _typeCheckSet,
     _this = this;
 
   _ref = require('./math'), Matrix4 = _ref.Matrix4, Vec3 = _ref.Vec3, Vec2 = _ref.Vec2;
@@ -6553,10 +6587,6 @@ and buffers
     return _this;
   };
 
-  washup = function(geometry) {
-    return _this;
-  };
-
   WebGLNodeDrawable.drawGL = function() {
     var gl;
     gl = CoffeeGL.Context.gl;
@@ -6577,6 +6607,30 @@ and buffers
       }
     }
     return this;
+  };
+
+  WebGLNodeDrawable.washup = function() {
+    if (this.vertexPositionBuffer != null) {
+      deleteBuffer(this.vertexPositionBuffer);
+    }
+    if (this.vertexColourBuffer != null) {
+      deleteBuffer(this.vertexColourBuffer);
+    }
+    if (this.vertexTextureBuffer != null) {
+      deleteBuffer(this.vertexTextureBuffer);
+    }
+    if (this.vertexNormalBuffer != null) {
+      deleteBuffer(this.vertexNormalBuffer);
+    }
+    if (this.vertexTangentBuffer != null) {
+      deleteBuffer(this.vertexTangentBuffer);
+    }
+    if (this.vertexBarycentreBuffer != null) {
+      deleteBuffer(this.vertexBarycentreBuffer);
+    }
+    if (this.vertexIndexBuffer != null) {
+      return deleteBuffer(this.vertexIndexBuffer);
+    }
   };
 
   makeNodeDrawableGL = function(node) {
@@ -6623,7 +6677,7 @@ Influenced by signals.js - an object where listeners and events may be added
 
 
 (function() {
-  var Signal, Vec2, makeMouseEmitter, makeTouchEmitter, mouseEmitter, touchEmitter, util;
+  var KeyEmitter, MouseEmitter, Signal, TouchEmitter, Vec2, makeKeyEmitter, makeMouseEmitter, makeTouchEmitter, removeKeyEmitter, removeMouseEmitter, removeTouchEmitter, util;
 
   util = require("./util");
 
@@ -6635,6 +6689,7 @@ Influenced by signals.js - an object where listeners and events may be added
   Signal = (function() {
     function Signal() {
       this.listeners = [];
+      this._pause = false;
     }
 
     Signal.prototype.add = function(func, context) {
@@ -6662,6 +6717,14 @@ Influenced by signals.js - an object where listeners and events may be added
       return this;
     };
 
+    Signal.prototype.pause = function(force) {
+      if (force != null) {
+        return this._pause = force;
+      } else {
+        return this._pause = !this._pause;
+      }
+    };
+
     Signal.prototype.del = function(func, context) {
       var i, obj, _i, _len, _ref;
       _ref = this.listeners;
@@ -6680,6 +6743,9 @@ Influenced by signals.js - an object where listeners and events may be added
 
     Signal.prototype.dispatch = function() {
       var l, removals, _i, _j, _len, _len1, _ref;
+      if (this._pause) {
+        return this;
+      }
       removals = [];
       _ref = this.listeners;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
@@ -6704,9 +6770,19 @@ Influenced by signals.js - an object where listeners and events may be added
   /*MouseEmitter*/
 
 
-  mouseEmitter = {};
+  MouseEmitter = {};
 
-  mouseEmitter["_setEvent"] = function(event) {
+  MouseEmitter["pauseMouseEmitter"] = function(force) {
+    this.mouseMove.pause(force);
+    this.mouseDown.pause(force);
+    this.mouseUp.pause(force);
+    this.mouseClick.pause(force);
+    this.mouseOut.pause(force);
+    this.mouseOver.pause(force);
+    return this.mouseWheel.pause(force);
+  };
+
+  MouseEmitter["_setMouseEvent"] = function(event) {
     this._getMousePos(event);
     this._setButtons(event);
     if (event.preventDefault != null) {
@@ -6721,7 +6797,7 @@ Influenced by signals.js - an object where listeners and events may be added
     return event;
   };
 
-  mouseEmitter["_getMousePos"] = function(e) {
+  MouseEmitter["_getMousePos"] = function(e) {
     if (e.clientX || e.clientY) {
       e.mouseX = e.clientX;
       e.mouseY = e.clientY;
@@ -6732,7 +6808,7 @@ Influenced by signals.js - an object where listeners and events may be added
     return [e.mouseX, e.mouseY];
   };
 
-  mouseEmitter["_setButtons"] = function(event) {
+  MouseEmitter["_setButtons"] = function(event) {
     if (event.type === "mousedown") {
       this._mouseButton = true;
     } else if (event.type === "mouseup" || event.type === "mouseout") {
@@ -6787,11 +6863,53 @@ Influenced by signals.js - an object where listeners and events may be added
     }
   };
 
-  makeMouseEmitter = function(obj) {
-    var f, g, q,
-      _this = this;
+  /*KeyEmitter*/
+
+
+  KeyEmitter = {};
+
+  KeyEmitter["pauseKeyEmitter"] = function(force) {
+    this.keyUp.pause(force);
+    this.keyDown.pause(force);
+    return this.keyPress.pause(force);
+  };
+
+  makeKeyEmitter = function(obj) {
     if (obj.canvas != null) {
-      util.extend(obj, mouseEmitter);
+      util.extend(obj, KeyEmitter);
+      obj.keyUp = new Signal();
+      obj.keyDown = new Signal();
+      obj.keyPress = new Signal();
+      obj["_onKeyUp"] = function(event) {
+        CoffeeGL.Context.switchContext(obj);
+        obj.keyUp.dispatch(event);
+        return false;
+      };
+      obj.canvas.addEventListener("keyup", obj["_onKeyUp"]);
+      obj["_onKeyDown"] = function(event) {
+        CoffeeGL.Context.switchContext(obj);
+        obj.keyDown.dispatch(event);
+        return false;
+      };
+      obj.canvas.addEventListener("keyup", obj["_onKeyDown"]);
+      obj["_onKeyPress"] = function(event) {
+        CoffeeGL.Context.switchContext(obj);
+        obj.keyPress.dispatch(event);
+        return false;
+      };
+      return obj.canvas.addEventListener("keypress", obj["_onKeyPress"]);
+    }
+  };
+
+  removeKeyEmitter = function(obj) {
+    obj.canvas.removeEventListener('keyup', obj["_onKeyUp"]);
+    return obj.canvas.removeEventListener('keydown', obj["_onKeyDown"]);
+  };
+
+  makeMouseEmitter = function(obj) {
+    var _this = this;
+    if (obj.canvas != null) {
+      util.extend(obj, MouseEmitter);
       obj.mouseMove = new Signal();
       obj.mouseDown = new Signal();
       obj.mouseUp = new Signal();
@@ -6800,94 +6918,134 @@ Influenced by signals.js - an object where listeners and events may be added
       obj.mouseOver = new Signal();
       obj.mouseWheel = new Signal();
       obj["_mouseButton"] = false;
-      obj.canvas.onmousemove = function(event) {
+      obj["_onMouseMove"] = function(event) {
         var e;
         CoffeeGL.Context.switchContext(obj);
-        e = obj._setEvent(event);
+        e = obj._setMouseEvent(event);
         obj.mouseMove.dispatch(e);
         return false;
       };
-      obj.canvas.onmousedown = function(event) {
+      obj.canvas.onmousemove = obj["_onMouseMove"];
+      obj["_onMouseDown"] = function(event) {
         CoffeeGL.Context.switchContext(obj);
-        obj._setEvent(event);
+        obj._setMouseEvent(event);
         obj.mouseDown.dispatch(event);
         return false;
       };
-      obj.canvas.onmouseup = function(event) {
+      obj.canvas.onmousedown = obj["_onMouseDown"];
+      obj["_onMouseUp"] = function(event) {
         CoffeeGL.Context.switchContext(obj);
-        obj._setEvent(event);
+        obj._setMouseEvent(event);
         obj.mouseUp.dispatch(event);
         return false;
       };
-      obj.canvas.onmouseclick = function(event) {
+      obj.canvas.onmouseup = obj["_onMouseUp"];
+      obj["_onMouseClick"] = function(event) {
         CoffeeGL.Context.switchContext(obj);
-        obj._setEvent(event);
+        obj._setMouseEvent(event);
         obj.mouseClick.dispatch(event);
         return false;
       };
-      obj.canvas.oncontextmenu = function(event) {
+      obj.canvas.onmouseclick = obj["_onMouseClick"];
+      obj["_onContextMenu"] = function(event) {
         CoffeeGL.Context.switchContext(obj);
-        obj._setEvent(event);
+        obj._setMouseEvent(event);
         return false;
       };
-      obj.canvas.onmouseout = function(event) {
+      obj.canvas.oncontextmenu = obj["_onContextMenu"];
+      obj["_onMouseOut"] = function(event) {
         CoffeeGL.Context.switchContext(obj);
-        obj._setEvent(event);
+        obj._setMouseEvent(event);
         obj.mouseOut.dispatch(event);
         return false;
       };
-      obj.canvas.onmouseover = function(event) {
+      obj.canvas.onmouseout = obj["_onMouseOut"];
+      obj["_onMouseOver"] = function(event) {
         CoffeeGL.Context.switchContext(obj);
-        obj._setEvent(event);
+        obj._setMouseEvent(event);
         obj.mouseOver.dispatch(event);
         return false;
       };
+      obj.canvas.onmouseover = obj["_onMouseOver"];
       if (obj.canvas.addEventListener != null) {
-        f = function(event) {
+        obj["_onMouseWheel"] = function(event) {
           CoffeeGL.Context.switchContext(obj);
-          obj._setEvent(event);
+          obj._setMouseEvent(event);
           obj.mouseWheel.dispatch(event);
           return false;
         };
-        g = function(event) {
+        obj["_onDOMNouseScroll"] = function(event) {
           CoffeeGL.Context.switchContext(obj);
           event.wheelDelta = Math.max(-500, Math.min(500, (event.wheelDelta || -event.detail) * 500));
-          obj._setEvent(event);
+          obj._setMouseEvent(event);
           obj.mouseWheel.dispatch(event);
           return false;
         };
-        q = function(event) {
+        obj["_onMouseClick"] = function(event) {
           CoffeeGL.Context.switchContext(obj);
-          obj._setEvent(event);
+          obj._setMouseEvent(event);
           obj.mouseClick.dispatch(event);
           return false;
         };
-        obj.canvas.addEventListener("mousewheel", f, false);
-        obj.canvas.addEventListener("DOMMouseScroll", g, false);
-        return obj.canvas.addEventListener("mouseclick", q, false);
+        obj.canvas.addEventListener("mousewheel", obj["_onMouseWheel"], false);
+        obj.canvas.addEventListener("DOMMouseScroll", obj["_onDOMNouseScroll"], false);
+        return obj.canvas.addEventListener("mouseclick", obj["_onMouseClick"], false);
       } else {
         if (obj.canvas.onmousewheel != null) {
-          return obj.canvas.onmousewheel = function(event) {
+          obj["_onMouseWheel"] = function(event) {
             CoffeeGL.Context.switchContext(obj);
-            obj._setEvent(event);
+            obj._setMouseEvent(event);
             obj.mouseWheel.dispatch(event);
             return false;
           };
+          return obj.canvas.onmousewheel = obj["_onMouseWheel"];
         }
       }
+    }
+  };
+
+  removeMouseEmitter = function(obj) {
+    if (obj.canvas != null) {
+      obj.canvas.removeEventListener('click', obj["_onMouseClick"]);
+      obj.canvas.removeEventListener('mousewheel', obj["_onMouseWheel"]);
+      obj.canvas.removeEventListener('DOMMouseScroll', obj["_onDOMNouseScroll"]);
+      obj.canvas.removeEventListener('mouseover', obj["_onMouseOver"]);
+      obj.canvas.removeEventListener('mouseout', obj["_onMouseOut"]);
+      obj.canvas.removeEventListener('mouseclick', obj["_onMouseClick"]);
+      obj.canvas.removeEventListener('mouseup', obj["_onMouseUp"]);
+      obj.canvas.removeEventListener('mousedown', obj["_onMouseDown"]);
+      obj.canvas.removeEventListener('mousemove', obj["_onMouseMove"]);
+      return obj.canvas.removeEventListener('mousebutton', obj["_onMouseButton"]);
+      /*
+      delete obj.mouseMove
+      delete obj.mouseDown
+      delete obj.mouseUp
+      delete obj.mouseClick
+      delete obj.mouseOut
+      delete obj.mouseOver
+      delete obj.mouseWheel
+      */
+
     }
   };
 
   /*TouchEmitter*/
 
 
-  touchEmitter = {};
+  TouchEmitter = {};
+
+  TouchEmitter["pauseTouchEmitter"] = function(force) {
+    this.touchPinch.pause(force);
+    this.touchTap.pause(force);
+    this.touchSpread.pause(force);
+    return this.touchSwipe.pause(force);
+  };
 
   makeTouchEmitter = function(obj) {
-    var end, ongoingTouchIndexById,
+    var ongoingTouchIndexById,
       _this = this;
     if (obj.canvas != null) {
-      util.extend(obj, touchEmitter);
+      util.extend(obj, TouchEmitter);
       obj.touchPinch = new Signal();
       obj.touchTap = new Signal();
       obj.touchSpread = new Signal();
@@ -6907,7 +7065,7 @@ Influenced by signals.js - an object where listeners and events may be added
         }
         return -1;
       };
-      obj.canvas.ontouchstart = function(evt) {
+      obj["_onTouchStart"] = function(evt) {
         var idx, touch, touches, _i, _len;
         CoffeeGL.Context.switchContext(obj);
         evt.preventDefault();
@@ -6927,7 +7085,8 @@ Influenced by signals.js - an object where listeners and events may be added
           return console.log("Touch Start ", obj.ongoingTouches);
         }
       };
-      obj.canvas.ontouchmove = function(evt) {
+      obj.canvas.ontouchstart = obj["_onTouchStart"];
+      obj["_onTouchMove"] = function(evt) {
         var cosa, d0, d1, dd0, dd1, idx, newtouch, touch, touches, _i, _len;
         CoffeeGL.Context.switchContext(obj);
         evt.preventDefault();
@@ -6968,7 +7127,8 @@ Influenced by signals.js - an object where listeners and events may be added
           return obj.touchSwipe.dispatch(evt);
         }
       };
-      end = function(evt) {
+      obj.canvas.ontouchmove = obj["_onTouchMove"];
+      obj["_touchEnd"] = function(evt) {
         var idx, newtouch, touches, _i, _len;
         CoffeeGL.Context.switchContext(obj);
         evt.preventDefault();
@@ -6988,15 +7148,26 @@ Influenced by signals.js - an object where listeners and events may be added
           return console.log("Touch End ", obj.ongoingTouches);
         }
       };
-      obj.canvas.ontouchend = end;
-      return obj.canvas.ontouchcancel = end;
+      obj.canvas.ontouchend = obj["_touchEnd"];
+      return obj.canvas.ontouchcancel = obj["_touchEnd"];
     }
+  };
+
+  removeTouchEmitter = function(obj) {
+    obj.canvas.removeEventListener("touchend", obj["_onTouchEnd"]);
+    obj.canvas.removeEventListener("touchcancel", obj["_onTouchEnd"]);
+    obj.canvas.removeEventListener("touchmove", obj["_onTouchMove"]);
+    return obj.canvas.removeEventListener("touchstart", obj["_onTouchStart"]);
   };
 
   module.exports = {
     Signal: Signal,
     makeMouseEmitter: makeMouseEmitter,
-    makeTouchEmitter: makeTouchEmitter
+    removeMouseEmitter: removeMouseEmitter,
+    makeTouchEmitter: makeTouchEmitter,
+    removeTouchEmitter: removeTouchEmitter,
+    makeKeyEmitter: makeKeyEmitter,
+    removeKeyEmitter: removeKeyEmitter
   };
 
 }).call(this);
@@ -7483,42 +7654,6 @@ This software is released under the MIT Licence. See LICENCE.txt for details
         ap.add(bp).add(cp);
         result.copyFrom(ap);
         return i;
-        /*
-        # compute normal
-        
-        t0 = Vec3.sub(b,a).normalize()
-        t1 = Vec3.sub(c,a).normalize()
-        
-        n = Vec3.cross t0, t1
-        
-        n.normalize() # Needed?
-        
-        d = rayPlaneIntersect(a, n, camera.pos, ray.xyz())
-        plane_hit = ray.xyz().multScalar(d)
-        
-        # Plane_hit is distance along the ray from the camera, not in world
-        # space so add the position
-        plane_hit.add camera.pos
-        
-        # Now test around the edges 
-        # all dot products should have the same sign
-        
-        # TODO - There is a better way of doing this using barycentric co-ords in the
-        # realtime rendering book 
-        
-        t0 = Vec3.sub(b,a).normalize()
-        t1 = Vec3.sub(c,b).normalize()
-        t2 = Vec3.sub(a,c).normalize()
-        
-        c0 = Vec3.sub(plane_hit,a).dot(t0)
-        c1 = Vec3.sub(plane_hit,b).dot(t1)
-        c2 = Vec3.sub(plane_hit,c).dot(t2)
-        
-        if (c0 >= 0 and c1 >=0 and c2 >=0) or (c0 < 0 and c1 < 0 and c2 < 0)
-          result.copyFrom plane_hit
-          return i
-        */
-
       }
     }
     _ref4 = node.children;

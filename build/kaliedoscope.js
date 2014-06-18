@@ -7,7 +7,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
 
 (function() {
-  var Kaliedoscope, canvas, cgl, credits_resize, kk,
+  var Kaliedoscope, canvas, credits_resize, kaliedoscopeWebGL, kk, params,
     __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
@@ -17,7 +17,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     }
 
     Kaliedoscope.prototype.loadAssets = function() {
-      var a, b, i, self, _genLoadAudio, _i, _loadShaderBlur, _loadShaderDOF, _loadShaderDepth, _loadVideo,
+      var a, b, i, self, _genLoadAudio, _i, _loadVideo,
         _this = this;
       a = function() {
         var i, item, tt, _i;
@@ -93,37 +93,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
           return _loadAudioSample;
         });
       };
-      _loadShaderDepth = new CoffeeGL.Loader.LoadItem(function() {
-        var r2,
-          _this = this;
-        r2 = new CoffeeGL.Request('/depth.glsl');
-        return r2.get(function(data) {
-          self.shader_depth = new CoffeeGL.Shader(data);
-          return _this.loaded();
-        });
-      });
-      _loadShaderDOF = new CoffeeGL.Loader.LoadItem(function() {
-        var r3,
-          _this = this;
-        r3 = new CoffeeGL.Request('/depth_of_field.glsl');
-        return r3.get(function(data) {
-          self.shader_dof = new CoffeeGL.Shader(data);
-          return _this.loaded();
-        });
-      });
-      _loadShaderBlur = new CoffeeGL.Loader.LoadItem(function() {
-        var r4,
-          _this = this;
-        r4 = new CoffeeGL.Request('/blur.glsl');
-        return r4.get(function(data) {
-          self.shader_blur = new CoffeeGL.Shader(data);
-          return _this.loaded();
-        });
-      });
       this.lq.add(_loadVideo);
-      this.lq.add(_loadShaderDepth);
-      this.lq.add(_loadShaderDOF);
-      this.lq.add(_loadShaderBlur);
       this.lq.add(_genLoadAudio('/sound/long/Lexus.mp3', this.sounds_long, true));
       for (i = _i = 0; _i <= 5; i = ++_i) {
         this.lq.add(_genLoadAudio('/sound/short/sound00' + i + '.mp3', this.sounds_short, false));
@@ -256,7 +226,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
     Kaliedoscope.prototype.morphPlane = function() {
       var dd, force, force_dist, i, idc, idt, inv, j, np, _i, _j, _ref, _ref1;
-      if (!(this.mouse_over && this.mouse_pressed)) {
+      if (!this.mouse_pressed) {
         return;
       }
       idt = 0;
@@ -370,39 +340,52 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     };
 
     Kaliedoscope.prototype.init = function() {
-      var i, r0, r1, _i,
+      var i, r2, r3, _i,
         _this = this;
-      CoffeeGL.makeTouchEmitter(CoffeeGL.Context);
-      this.state_ready = false;
-      this.state_loaded = false;
-      this.loading_items = [];
-      this.loading_timeout = 0;
-      this.ready_fade_in = 0;
-      this.loading_time_limit = 3;
-      this.ready_fade_time = 3;
+      if (this.state_ready == null) {
+        this.state_ready = false;
+      }
+      if (this.state_loaded == null) {
+        this.state_loaded = false;
+        this.loading_items = [];
+        this.loading_timeout = 0;
+        this.ready_fade_in = 0;
+        this.loading_time_limit = 3;
+        this.ready_fade_time = 3;
+      }
       this.noise = new CoffeeGL.Noise.Noise();
       this.noise.setSeed(Math.random());
-      this.colour_palette = [new CoffeeGL.Colour.RGBA(31, 169, 225), new CoffeeGL.Colour.RGBA(34, 54, 107), new CoffeeGL.Colour.RGBA(240, 77, 35), new CoffeeGL.Colour.RGBA(228, 198, 158), new CoffeeGL.Colour.RGBA(195, 206, 207)];
-      this.plane_yres = 9;
-      this.plane_xres = 21;
+      if (this.colour_palette == null) {
+        this.colour_palette = [new CoffeeGL.Colour.RGBA(31, 169, 225), new CoffeeGL.Colour.RGBA(34, 54, 107), new CoffeeGL.Colour.RGBA(240, 77, 35), new CoffeeGL.Colour.RGBA(228, 198, 158), new CoffeeGL.Colour.RGBA(195, 206, 207)];
+      }
+      this.plane_yres = 7;
+      this.plane_xres = 15;
       this.setupPlane();
       this.video_node = new CoffeeGL.Node(this.plane);
       this.face_node = new CoffeeGL.Node(this.plane_face);
+      this.video_node.brew({
+        position_buffer_access: GL.DYNAMIC_DRAW,
+        texcoord_buffer_access: GL.DYNAMIC_DRAW
+      });
+      this.face_node.brew({
+        position_buffer_access: GL.DYNAMIC_DRAW,
+        colour_buffer_access: GL.DYNAMIC_DRAW
+      });
+      this.geomTrans(CoffeeGL.Context.width, CoffeeGL.Context.height);
+      r2 = new CoffeeGL.Request('/basic_texture.glsl');
+      r2.get(function(data) {
+        return _this.shader = new CoffeeGL.Shader(data);
+      });
+      r3 = new CoffeeGL.Request('/face.glsl');
+      r3.get(function(data) {
+        _this.shader_face = new CoffeeGL.Shader(data);
+        _this.shader_face.bind();
+        return _this.shader_face.setUniform1f("uAlphaScalar", _this.highLight.alpha_scalar);
+      });
       this.ray = new CoffeeGL.Vec3(0, 0, 0);
       this.intersect_prev = new CoffeeGL.Vec3(0, 0, 0);
       this.intersect = new CoffeeGL.Vec3(0, 0, 0);
       this.selected_tris = this.selected_tris_prev = -1;
-      this.screen_node = new CoffeeGL.Node(new CoffeeGL.Quad());
-      this.dof_params = {
-        focal_distance: 3.78,
-        focal_range: 0.02
-      };
-      this.fbo_depth = new CoffeeGL.Fbo(CoffeeGL.Context.width, CoffeeGL.Context.height);
-      this.fbo_depth.texture.unit = 1;
-      this.fbo_colour = new CoffeeGL.Fbo(CoffeeGL.Context.width, CoffeeGL.Context.height);
-      this.fbo_colour.texture.unit = 0;
-      this.fbo_blur = new CoffeeGL.Fbo(CoffeeGL.Context.width, CoffeeGL.Context.height);
-      this.fbo_blur.texture.unit = 2;
       this.warp = {
         exponent: 2,
         force: 0.004 + (Math.random() * 0.001),
@@ -422,30 +405,14 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       };
       this.sound_long_playing = false;
       this.sound_on = true;
-      this.sound_long_triggers = [];
       this.sound_short_triggers = [];
+      if (!this.state_loaded) {
+        this.sounds_long = [];
+        this.sounds_short = [];
+      }
       for (i = _i = 0; _i <= 100; i = ++_i) {
         this.sound_short_triggers.push(Math.floor(Math.random() * this.plane.getNumTris()));
       }
-      this.video_node.brew({
-        position_buffer_access: GL.DYNAMIC_DRAW,
-        texcoord_buffer_access: GL.DYNAMIC_DRAW
-      });
-      this.face_node.brew({
-        position_buffer_access: GL.DYNAMIC_DRAW,
-        colour_buffer_access: GL.DYNAMIC_DRAW
-      });
-      this.geomTrans(CoffeeGL.Context.width, CoffeeGL.Context.height);
-      r0 = new CoffeeGL.Request('/basic_texture.glsl');
-      r0.get(function(data) {
-        return _this.shader = new CoffeeGL.Shader(data);
-      });
-      r1 = new CoffeeGL.Request('/face.glsl');
-      r1.get(function(data) {
-        _this.shader_face = new CoffeeGL.Shader(data);
-        _this.shader_face.bind();
-        return _this.shader_face.setUniform1f("uAlphaScalar", _this.highLight.alpha_scalar);
-      });
       this.camera = new CoffeeGL.Camera.PerspCamera();
       this.camera.pos.z = 3.8;
       this.camera.near = 0.001;
@@ -454,15 +421,20 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       this.video_node.add(this.camera);
       this.face_node.add(this.camera);
       this.t = new CoffeeGL.TextureBase({
-        width: 240,
-        height: 134
+        width: 256,
+        height: 256
       });
       GL.enable(GL.BLEND);
       GL.blendFunc(GL.SRC_ALPHA, GL.ONE_MINUS_SRC_ALPHA);
-      this.video_ready = false;
-      this.sounds_long = [];
-      this.sounds_short = [];
-      this.loadAssets();
+      if (this.video_ready == null) {
+        this.video_ready = false;
+      } else {
+        this.video_element.play();
+        this.video_node.add(this.t);
+      }
+      if (!this.state_loaded) {
+        this.loadAssets();
+      }
       /*
       datg = new dat.GUI()
       datg.remember(@)
@@ -489,7 +461,6 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       CoffeeGL.Context.mouseOver.add(this.mouseOver, this);
       CoffeeGL.Context.mouseDown.add(this.mouseDown, this);
       CoffeeGL.Context.mouseUp.add(this.mouseUp, this);
-      CoffeeGL.Context.touchSwipe.add(this.touchSwipe, this);
       this.mouse_over = false;
       return this.mouse_pressed = false;
     };
@@ -623,82 +594,21 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         if (this.ready_fade_in > 1.0) {
           this.ready_fade_in = 1.0;
         }
-        this.updateActual();
+        return this.updateActual();
       } else {
         this.updateLoading();
         this.loading_timeout += dt / 1000;
         if (this.state_loaded && this.loading_timeout > this.loading_time_limit) {
           this.state_ready = true;
           credits = document.getElementById('credits');
-          credits.style.display = 'none';
+          return credits.style.display = 'none';
         }
-      }
-      if (CoffeeGL.Context.ongoingTouches.length > 0) {
-        return this.mouse_over = false;
       }
     };
 
     Kaliedoscope.prototype.drawActual = function() {
       GL.clearColor(0.15, 0.15, 0.15, 1.0);
       GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
-      /*
-      if @shader_depth?
-        @fbo_depth.bind()
-        @fbo_depth.clear(new CoffeeGL.Colour.RGBA.WHITE())
-        @shader_depth.bind()
-        @video_node.draw()
-        @shader_depth.unbind()
-        @fbo_depth.unbind()
-      
-       
-      if @shader? and @shader_face?
-        @fbo_colour.bind()
-        @fbo_colour.clear(new CoffeeGL.Colour.RGBA.BLACK())
-        @shader.bind()
-        @video_node.draw()
-        @shader_face.bind()
-        @face_node.draw()
-        @fbo_colour.unbind()
-      
-      if @shader_blur?
-        @fbo_blur.bind()
-        @fbo_blur.clear()
-        @shader_blur.bind()
-        @shader_blur.setUniform1i "uSampler",0
-        @shader_blur.setUniform1f "uResolution", 512
-        @shader_blur.setUniform1f "uRadius", 2
-        @shader_blur.setUniform2fv "uDir", [1.0, 0.0]
-      
-        @fbo_colour.texture.bind()
-        @screen_node.draw()
-        @fbo_colour.texture.unbind()
-        @fbo_blur.unbind()
-      
-      
-      if @shader_dof?
-        @shader_dof.bind()
-        
-        @fbo_colour.texture.bind()
-        @fbo_depth.texture.bind()
-        @fbo_blur.texture.bind()
-      
-        @shader_dof.setUniform1i "uSampler",0
-        @shader_dof.setUniform1i "uSamplerDepth", 1
-        @shader_dof.setUniform1i "uSamplerBlurred", 2
-        @shader_dof.setUniform1f "uNearPlane", @camera.near
-        @shader_dof.setUniform1f "uFarPlane", @camera.far
-      
-        @shader_dof.setUniform1f "uFocalRange", @dof_params.focal_range
-        @shader_dof.setUniform1f "uFocalDistance", @dof_params.focal_distance
-      
-        @screen_node.draw()
-      
-        @fbo_depth.texture.unbind()
-        @fbo_colour.texture.unbind()
-        @fbo_blur.texture.unbind()
-        @shader_dof.unbind()
-      */
-
       this.shader.bind();
       this.video_node.draw();
       this.shader_face.bind();
@@ -768,25 +678,19 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       }
     };
 
-    Kaliedoscope.prototype.touchSwipe = function(event) {
-      var touch, _i, _len, _ref, _results;
-      this.mouse_over = true;
-      this.mouse_pressed = true;
-      _ref = CoffeeGL.Context.ongoingTouches;
-      _results = [];
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        touch = _ref[_i];
-        _results.push(this.interact(touch.ppos.x, touch.ppos.y));
-      }
-      return _results;
-    };
+    /*
+    touchSwipe : (event) ->
+      @mouse_over = true
+      @mouse_pressed = true
+    
+      for touch in CoffeeGL.Context.ongoingTouches
+        @interact touch.ppos.x, touch.ppos.y
+    */
 
-    Kaliedoscope.prototype.mouseOver = function(event) {
-      return this.mouse_over = true;
-    };
+
+    Kaliedoscope.prototype.mouseOver = function(event) {};
 
     Kaliedoscope.prototype.mouseOut = function(event) {
-      this.mouse_over = false;
       return this.selected_tris_prev = this.selected_tris = -1;
     };
 
@@ -804,6 +708,20 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       }
     };
 
+    Kaliedoscope.prototype.shutdown = function() {
+      var sound_short_triggers, video;
+      sound_short_triggers = [];
+      video = document.getElementById("video");
+      video.pause();
+      video.currentTime = 0;
+      this.video_node.washup();
+      this.face_node.washup();
+      delete this.video_node;
+      delete this.face_node;
+      this.t.washup();
+      return delete this.t;
+    };
+
     return Kaliedoscope;
 
   })();
@@ -817,7 +735,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
   window.notSupported = function() {
     $('#webgl-canvas').remove();
-    return $('#credits').append('<h3>Your browser does not support WebGL</h3><p>Please upgrade to the latest version of Firefox, Chrome or Safari.</p>');
+    return $('#credits').append('<h3>Your browser does not support WebGL</h3><p>Visit <a href="http://get.webgl.org">get.webgl.org</a> to learn more.</p>');
   };
 
   canvas = document.getElementById('webgl-canvas');
@@ -828,7 +746,27 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
   kk = new Kaliedoscope();
 
-  cgl = new CoffeeGL.App('webgl-canvas', kk, kk.init, kk.draw, kk.update, window.notSupported);
+  params = {
+    canvas: 'webgl-canvas',
+    context: kk,
+    init: kk.init,
+    draw: kk.draw,
+    update: kk.update,
+    error: window.notSupported,
+    delay_start: false,
+    shutdown: kk.shutdown
+  };
+
+  kaliedoscopeWebGL = new CoffeeGL.App(params);
+
+  /*
+  keypressed = (event) ->
+    if event.keyCode == 115
+      kaliedoscopeWebGL.shutdown()
+    else if event.keyCode == 103
+      kaliedoscopeWebGL.startup()
+  */
+
 
   if (typeof window !== "undefined" && window !== null) {
     window.addEventListener('resize', kk.resize, false);

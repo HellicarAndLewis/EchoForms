@@ -31,6 +31,7 @@ class Kaliedoscope
       console.log "Loaded All"
       @state_loaded = true
 
+
     @lq = new CoffeeGL.Loader.LoadQueue @, a, b
 
     self = @
@@ -96,41 +97,14 @@ class Kaliedoscope
 
         return _loadAudioSample
 
-    _loadShaderDepth = new CoffeeGL.Loader.LoadItem () ->
-
-      r2 = new CoffeeGL.Request('/depth.glsl')
-      r2.get (data) =>
-        self.shader_depth = new CoffeeGL.Shader(data)
-        @loaded()
-      
-    _loadShaderDOF = new CoffeeGL.Loader.LoadItem () ->
-      r3 = new CoffeeGL.Request('/depth_of_field.glsl')
-      r3.get (data) =>
-        self.shader_dof = new CoffeeGL.Shader(data)
-        @loaded()
-
-    _loadShaderBlur = new CoffeeGL.Loader.LoadItem () ->
-      r4 = new CoffeeGL.Request('/blur.glsl')
-      r4.get (data) =>
-        self.shader_blur = new CoffeeGL.Shader(data)
-        @loaded()
-
-
+  
     @lq.add _loadVideo
-    @lq.add _loadShaderDepth
-    @lq.add _loadShaderDOF
-    @lq.add _loadShaderBlur
-
-    # Long sounds
-    #for i in [0..8] 
-    #  @lq.add _genLoadAudio('/sound/long/sound00' + i + '.mp3', @sounds_long, true)
-
+  
     @lq.add _genLoadAudio('/sound/long/Lexus.mp3', @sounds_long, true)
 
     # Short sounds
     for i in [0..5] 
       @lq.add _genLoadAudio('/sound/short/sound00' + i + '.mp3', @sounds_short, false)
-
 
     @lq.start()
     
@@ -261,7 +235,7 @@ class Kaliedoscope
   # We do this in CPU space as there is no real speed issue
   morphPlane : () ->
 
-    if not (@mouse_over and @mouse_pressed)
+    if not @mouse_pressed
       return
 
     idt = 0 
@@ -376,64 +350,66 @@ class Kaliedoscope
 
     @face_node.matrix.copyFrom @video_node.matrix
 
+
   init : () ->
-    
-    CoffeeGL.makeTouchEmitter CoffeeGL.Context
 
     # State
-    @state_ready = false
-    @state_loaded = false
-    @loading_items = []
-    @loading_timeout = 0
-    @ready_fade_in = 0
-    @loading_time_limit = 3
-    @ready_fade_time = 3
+    if not @state_ready?
+      @state_ready = false
+    
+    # Check to see if we've already loaded things
+    if not @state_loaded?
+      @state_loaded = false
+    
+      @loading_items = []
+      @loading_timeout = 0
+      @ready_fade_in = 0
+      @loading_time_limit = 3
+      @ready_fade_time = 3
 
     # Noise
     @noise = new CoffeeGL.Noise.Noise()
     @noise.setSeed(Math.random())
 
     # Colours
-    @colour_palette = [ new CoffeeGL.Colour.RGBA(31,169,225),  
-      new CoffeeGL.Colour.RGBA(34,54,107),
-      new CoffeeGL.Colour.RGBA(240,77,35), 
-      new CoffeeGL.Colour.RGBA(228,198,158), 
-      new CoffeeGL.Colour.RGBA(195,206,207) ]
+    if not @colour_palette?
+      @colour_palette = [ new CoffeeGL.Colour.RGBA(31,169,225),  
+        new CoffeeGL.Colour.RGBA(34,54,107),
+        new CoffeeGL.Colour.RGBA(240,77,35), 
+        new CoffeeGL.Colour.RGBA(228,198,158), 
+        new CoffeeGL.Colour.RGBA(195,206,207) ]
   
-
     # Plane
-    @plane_yres = 9
-    @plane_xres = 21
+    #if not @plane
+    @plane_yres = 7
+    @plane_xres = 15
     @setupPlane()
     @video_node = new CoffeeGL.Node @plane
     @face_node = new CoffeeGL.Node @plane_face
+
+    # Pre brew with correct dynamic flags
+    @video_node.brew {position_buffer_access : GL.DYNAMIC_DRAW, texcoord_buffer_access : GL.DYNAMIC_DRAW} 
+    @face_node.brew {position_buffer_access : GL.DYNAMIC_DRAW, colour_buffer_access: GL.DYNAMIC_DRAW} 
+
+    @geomTrans CoffeeGL.Context.width, CoffeeGL.Context.height
+
+    # Load shaders seperately as they are important to the context
+    r2 = new CoffeeGL.Request('/basic_texture.glsl')
+    r2.get (data) =>
+      @shader = new CoffeeGL.Shader(data)
+    
+    r3 = new CoffeeGL.Request('/face.glsl')
+    r3.get (data) =>
+      @shader_face = new CoffeeGL.Shader(data)
+      @shader_face.bind()
+      @shader_face.setUniform1f "uAlphaScalar", @highLight.alpha_scalar
+     
 
     # Intersections
     @ray = new CoffeeGL.Vec3 0,0,0
     @intersect_prev = new CoffeeGL.Vec3 0,0,0
     @intersect = new CoffeeGL.Vec3 0,0,0
     @selected_tris = @selected_tris_prev = -1
-
-    # Post effects
-    @screen_node = new CoffeeGL.Node new CoffeeGL.Quad()
-   
-    # Depth of Field Parameters
-    @dof_params =
-      focal_distance : 3.78
-      focal_range : 0.02
-   
-    # FBOs
-    @fbo_depth = new CoffeeGL.Fbo CoffeeGL.Context.width, CoffeeGL.Context.height
-    @fbo_depth.texture.unit = 1
-
-    # Colour Buffer
-    @fbo_colour = new CoffeeGL.Fbo CoffeeGL.Context.width, CoffeeGL.Context.height 
-    @fbo_colour.texture.unit = 0
-
-    # Blur buffer can be smaller to get extra blur for free if we want
-    @fbo_blur = new CoffeeGL.Fbo CoffeeGL.Context.width, CoffeeGL.Context.height
-    @fbo_blur.texture.unit = 2
-
 
     # Warp parameters
     @warp =
@@ -457,32 +433,16 @@ class Kaliedoscope
     # Sound parameters
     @sound_long_playing = false
     @sound_on = true
-    @sound_long_triggers = []
     @sound_short_triggers = []
 
-    #for i in [0..55]
-    #  @sound_long_triggers.push Math.floor( Math.random() * @plane.getNumTris())
+    if not @state_loaded
+      @sounds_long = []
+      @sounds_short = []
 
     for i in [0..100]
       @sound_short_triggers.push Math.floor( Math.random() * @plane.getNumTris())
 
-
-    # Pre brew with correct dynamic flags
-    @video_node.brew {position_buffer_access : GL.DYNAMIC_DRAW, texcoord_buffer_access : GL.DYNAMIC_DRAW} 
-    @face_node.brew {position_buffer_access : GL.DYNAMIC_DRAW, colour_buffer_access: GL.DYNAMIC_DRAW} 
-
-    @geomTrans CoffeeGL.Context.width, CoffeeGL.Context.height
-
-    r0 = new CoffeeGL.Request('/basic_texture.glsl')
-    r0.get (data) =>
-      @shader = new CoffeeGL.Shader(data)
-     
-    r1 = new CoffeeGL.Request('/face.glsl')
-    r1.get (data) =>
-      @shader_face = new CoffeeGL.Shader(data)
-      @shader_face.bind()
-      @shader_face.setUniform1f "uAlphaScalar", @highLight.alpha_scalar
-
+    #if not @camera?
     @camera = new CoffeeGL.Camera.PerspCamera()
     @camera.pos.z = 3.8
     @camera.near = 0.001
@@ -491,8 +451,9 @@ class Kaliedoscope
 
     @video_node.add @camera
     @face_node.add @camera
-   
-    @t = new CoffeeGL.TextureBase({ width: 240, height: 134 })
+    
+    #if not @t?
+    @t = new CoffeeGL.TextureBase({ width: 256, height: 256 })
 
     #GL.enable(GL.CULL_FACE)
     #GL.cullFace(GL.BACK)
@@ -502,10 +463,14 @@ class Kaliedoscope
     GL.blendFunc(GL.SRC_ALPHA, GL.ONE_MINUS_SRC_ALPHA)
 
     # Asset Loading
-    @video_ready = false
-    @sounds_long = []
-    @sounds_short = []
-    @loadAssets()
+    if not @video_ready? # Don't reload video if its already loaded
+      @video_ready = false
+    else
+      @video_element.play()
+      @video_node.add @t
+    
+    if not @state_loaded
+      @loadAssets()
 
     # GUI Setup
 
@@ -538,12 +503,12 @@ class Kaliedoscope
     CoffeeGL.Context.mouseUp.add @mouseUp, @
 
     # Setup touch listener
-    CoffeeGL.Context.touchSwipe.add @touchSwipe, @
-
+    #CoffeeGL.Context.touchSwipe.add @touchSwipe, @
 
     # Mouse states
     @mouse_over = false
     @mouse_pressed = false
+
 
   # Given a face, make it lighter
   updateFaceHighlight : (idx) ->
@@ -649,71 +614,14 @@ class Kaliedoscope
         credits = document.getElementById 'credits'
         credits.style.display = 'none'
 
-    if CoffeeGL.Context.ongoingTouches.length > 0
-      @mouse_over = false
+    #if CoffeeGL.Context.ongoingTouches.length > 0
+    #  @mouse_over = false
 
   # Loaded and running
   drawActual : () ->
     GL.clearColor(0.15, 0.15, 0.15, 1.0)
     GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT)
 
-    ###
-    if @shader_depth?
-      @fbo_depth.bind()
-      @fbo_depth.clear(new CoffeeGL.Colour.RGBA.WHITE())
-      @shader_depth.bind()
-      @video_node.draw()
-      @shader_depth.unbind()
-      @fbo_depth.unbind()
-
- 
-    if @shader? and @shader_face?
-      @fbo_colour.bind()
-      @fbo_colour.clear(new CoffeeGL.Colour.RGBA.BLACK())
-      @shader.bind()
-      @video_node.draw()
-      @shader_face.bind()
-      @face_node.draw()
-      @fbo_colour.unbind()
-
-    if @shader_blur?
-      @fbo_blur.bind()
-      @fbo_blur.clear()
-      @shader_blur.bind()
-      @shader_blur.setUniform1i "uSampler",0
-      @shader_blur.setUniform1f "uResolution", 512
-      @shader_blur.setUniform1f "uRadius", 2
-      @shader_blur.setUniform2fv "uDir", [1.0, 0.0]
-
-      @fbo_colour.texture.bind()
-      @screen_node.draw()
-      @fbo_colour.texture.unbind()
-      @fbo_blur.unbind()
-
-
-    if @shader_dof?
-      @shader_dof.bind()
-      
-      @fbo_colour.texture.bind()
-      @fbo_depth.texture.bind()
-      @fbo_blur.texture.bind()
-
-      @shader_dof.setUniform1i "uSampler",0
-      @shader_dof.setUniform1i "uSamplerDepth", 1
-      @shader_dof.setUniform1i "uSamplerBlurred", 2
-      @shader_dof.setUniform1f "uNearPlane", @camera.near
-      @shader_dof.setUniform1f "uFarPlane", @camera.far
-
-      @shader_dof.setUniform1f "uFocalRange", @dof_params.focal_range
-      @shader_dof.setUniform1f "uFocalDistance", @dof_params.focal_distance
-
-      @screen_node.draw()
-
-      @fbo_depth.texture.unbind()
-      @fbo_colour.texture.unbind()
-      @fbo_blur.texture.unbind()
-      @shader_dof.unbind()
-    ###
     @shader.bind()
     @video_node.draw()
     @shader_face.bind()
@@ -785,18 +693,20 @@ class Kaliedoscope
         @sounds_long[0].play()
         @sounds_long[0].playing = true
 
+  ###
   touchSwipe : (event) ->
     @mouse_over = true
     @mouse_pressed = true
 
     for touch in CoffeeGL.Context.ongoingTouches
       @interact touch.ppos.x, touch.ppos.y
+  ###
 
   mouseOver : (event) ->
-    @mouse_over = true
+    #@mouse_over = true
 
   mouseOut : (event) ->
-    @mouse_over = false
+    #@mouse_over = false
     @selected_tris_prev = @selected_tris = -1
 
   mouseDown : (event) ->
@@ -811,6 +721,28 @@ class Kaliedoscope
       @sounds_long[0].fadeOut(1.0)
       @sounds_long[0].playing = false
 
+  # Called when we shutdown rendering
+  shutdown : () ->
+
+    # Remove triggers
+    sound_short_triggers = []
+
+    # Reset Video but keep it in context
+    video = document.getElementById "video"
+    video.pause()
+    video.currentTime = 0
+
+    # Destroy nodes - removing from the graphics card
+    @video_node.washup()
+    @face_node.washup()
+
+    delete @video_node
+    delete @face_node
+
+    # Destroy the texure
+    @t.washup()
+    delete @t
+
 
 # resize the credits div
 credits_resize = () ->
@@ -821,7 +753,7 @@ credits_resize = () ->
 window.notSupported = () ->
     
   $('#webgl-canvas').remove()
-  $('#credits').append('<h3>Your browser does not support WebGL</h3><p>Please upgrade to the latest version of Firefox, Chrome or Safari.</p>')
+  $('#credits').append('<h3>Your browser does not support WebGL</h3><p>Visit <a href="http://get.webgl.org">get.webgl.org</a> to learn more.</p>')
 
 
 # Initial Size of the Canvas, pre WebGL
@@ -830,10 +762,35 @@ canvas.width = window.innerWidth
 canvas.height = window.innerHeight
 
 kk = new Kaliedoscope()
-cgl = new CoffeeGL.App('webgl-canvas', kk, kk.init, kk.draw, kk.update, window.notSupported)
+
+params = 
+  canvas : 'webgl-canvas'
+  context : kk
+  init : kk.init
+  draw : kk.draw
+  update : kk.update
+  error : window.notSupported
+  delay_start : false
+  shutdown : kk.shutdown
+
+kaliedoscopeWebGL = new CoffeeGL.App(params)
+
+###
+keypressed = (event) ->
+  if event.keyCode == 115
+    kaliedoscopeWebGL.shutdown()
+  else if event.keyCode == 103
+    kaliedoscopeWebGL.startup()
+###
+
+#canvas.addEventListener "keypress", keypressed
 
 window.addEventListener('resize', kk.resize, false) if window?
-
 window.addEventListener('resize', credits_resize, false) if window?
-
 credits_resize()
+
+#kaliedoscopeWebGL.startup()
+
+
+
+
