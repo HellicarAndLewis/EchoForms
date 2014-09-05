@@ -141,11 +141,8 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       return _results;
     };
 
-    Kaliedoscope.prototype.morphPlane = function() {
+    Kaliedoscope.prototype.morphPlane = function(intersect, intersect_prev) {
       var dd, force, force_dist, i, idc, idt, inv, j, np, _i, _j, _ref, _ref1;
-      if (!this.mouse_pressed) {
-        return;
-      }
       idt = 0;
       idc = 0;
       np = new CoffeeGL.Vec3(0, 0, 0);
@@ -156,9 +153,9 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
           np.y = this.plane.p[idt++];
           np.z = this.plane.p[idt++];
           this.video_node.matrix.multVec(np);
-          force = CoffeeGL.Vec3.sub(this.intersect, this.intersect_prev);
-          force_dist = this.intersect.dist(this.intersect_prev);
-          dd = np.dist(this.intersect);
+          force = CoffeeGL.Vec3.sub(intersect, intersect_prev);
+          force_dist = intersect.dist(intersect_prev);
+          dd = np.dist(intersect);
           if (force_dist > 0.01) {
             if (dd < this.warp.range) {
               force.normalize();
@@ -309,6 +306,8 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       this.intersect_prev = new CoffeeGL.Vec3(0, 0, 0);
       this.intersect = new CoffeeGL.Vec3(0, 0, 0);
       this.selected_tris = this.selected_tris_prev = -1;
+      this.intersect_prev_optical = new CoffeeGL.Vec3(0, 0, 0);
+      this.intersect_optical = new CoffeeGL.Vec3(0, 0, 0);
       this.warp = {
         exponent: 2,
         force: 0.004 + (Math.random() * 0.001),
@@ -481,6 +480,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     };
 
     Kaliedoscope.prototype.updateActual = function(dt) {
+      var active_flow, i, now, prev, _i, _len, _results;
       if (this.video_ready) {
         this.t.update(this.video_element);
       }
@@ -498,7 +498,9 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         this.shader_face.setUniform1f("uAlphaScalar", this.highLight.alpha_scalar);
       }
       this.naturalForce();
-      this.morphPlane();
+      if (this.mouse_pressed) {
+        this.morphPlane(this.intersect, this.intersect_prev);
+      }
       this.copyToFace();
       this.updateFaceHighlight(this.selected_tris);
       this.video_node.rebrew({
@@ -513,7 +515,22 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       if (this.sound_on) {
         this.playSound();
       }
-      return this.optical_flow.update(dt);
+      this.optical_flow.update(dt);
+      active_flow = this.optical_flow.active_intersections();
+      _results = [];
+      for (_i = 0, _len = active_flow.length; _i < _len; _i++) {
+        i = active_flow[_i];
+        now = i[0];
+        prev = i[1];
+        this.intersect_prev_optical.x = prev[0] / this.webcam_element.videoWidth * 2 - 1;
+        this.intersect_prev_optical.y = prev[1] / this.webcam_element.videoHeight * 2 - 1;
+        this.intersect_prev_optical.z = 0.001;
+        this.intersect_optical.x = now[0] / this.webcam_element.videoWidth * 2 - 1;
+        this.intersect_optical.y = now[1] / this.webcam_element.videoHeight * 2 - 1;
+        this.intersect_optical.z = 0.001;
+        _results.push(this.morphPlane(this.intersect_optical, this.intersect_prev_optical));
+      }
+      return _results;
     };
 
     Kaliedoscope.prototype.update = function(dt) {

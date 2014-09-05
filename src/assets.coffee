@@ -41,7 +41,7 @@ loadAssets = (obj) ->
     obj.video_element.preload = "auto"
 
     # Select different video format depending on the browser
-    if obj.profile.browser == "Firefox"
+    if CoffeeGL.Context.profile.browser == "Firefox"
       obj.video_element.src = "/H&L-Lexus-Edit01-final01.ogv"
     else
       obj.video_element.src = "/H&L-Lexus-Edit01-final01.mp4"
@@ -98,7 +98,7 @@ loadAssets = (obj) ->
         #obj.flow_worker.onmessage = obj.onFlowEvent
         #obj.flow_worker.postMessage { cmd: "startup", data : obj.webcam_element }
 
-        obj.optical_flow = new OpticalFlow(obj.webcam_element, obj.webcam_canvas)
+        obj.optical_flow = new OpticalFlow(obj.webcam_element, obj.webcam_canvas, obj.plane_xres, obj.plane_yres)
 
         @loaded()
         console.log "Webcam Loaded", obj.webcam_element.videoWidth, obj.webcam_element.videoHeight

@@ -142,11 +142,8 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       return _results;
     };
 
-    Kaliedoscope.prototype.morphPlane = function() {
+    Kaliedoscope.prototype.morphPlane = function(intersect, intersect_prev) {
       var dd, force, force_dist, i, idc, idt, inv, j, np, _i, _j, _ref, _ref1;
-      if (!this.mouse_pressed) {
-        return;
-      }
       idt = 0;
       idc = 0;
       np = new CoffeeGL.Vec3(0, 0, 0);
@@ -157,9 +154,9 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
           np.y = this.plane.p[idt++];
           np.z = this.plane.p[idt++];
           this.video_node.matrix.multVec(np);
-          force = CoffeeGL.Vec3.sub(this.intersect, this.intersect_prev);
-          force_dist = this.intersect.dist(this.intersect_prev);
-          dd = np.dist(this.intersect);
+          force = CoffeeGL.Vec3.sub(intersect, intersect_prev);
+          force_dist = intersect.dist(intersect_prev);
+          dd = np.dist(intersect);
           if (force_dist > 0.01) {
             if (dd < this.warp.range) {
               force.normalize();
@@ -310,6 +307,8 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       this.intersect_prev = new CoffeeGL.Vec3(0, 0, 0);
       this.intersect = new CoffeeGL.Vec3(0, 0, 0);
       this.selected_tris = this.selected_tris_prev = -1;
+      this.intersect_prev_optical = new CoffeeGL.Vec3(0, 0, 0);
+      this.intersect_optical = new CoffeeGL.Vec3(0, 0, 0);
       this.warp = {
         exponent: 2,
         force: 0.004 + (Math.random() * 0.001),
@@ -482,6 +481,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     };
 
     Kaliedoscope.prototype.updateActual = function(dt) {
+      var active_flow, i, now, prev, _i, _len, _results;
       if (this.video_ready) {
         this.t.update(this.video_element);
       }
@@ -499,7 +499,9 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         this.shader_face.setUniform1f("uAlphaScalar", this.highLight.alpha_scalar);
       }
       this.naturalForce();
-      this.morphPlane();
+      if (this.mouse_pressed) {
+        this.morphPlane(this.intersect, this.intersect_prev);
+      }
       this.copyToFace();
       this.updateFaceHighlight(this.selected_tris);
       this.video_node.rebrew({
@@ -514,7 +516,22 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       if (this.sound_on) {
         this.playSound();
       }
-      return this.optical_flow.update(dt);
+      this.optical_flow.update(dt);
+      active_flow = this.optical_flow.active_intersections();
+      _results = [];
+      for (_i = 0, _len = active_flow.length; _i < _len; _i++) {
+        i = active_flow[_i];
+        now = i[0];
+        prev = i[1];
+        this.intersect_prev_optical.x = prev[0] / this.webcam_element.videoWidth * 2 - 1;
+        this.intersect_prev_optical.y = prev[1] / this.webcam_element.videoHeight * 2 - 1;
+        this.intersect_prev_optical.z = 0.001;
+        this.intersect_optical.x = now[0] / this.webcam_element.videoWidth * 2 - 1;
+        this.intersect_optical.y = now[1] / this.webcam_element.videoHeight * 2 - 1;
+        this.intersect_optical.z = 0.001;
+        _results.push(this.morphPlane(this.intersect_optical, this.intersect_prev_optical));
+      }
+      return _results;
     };
 
     Kaliedoscope.prototype.update = function(dt) {
@@ -761,7 +778,7 @@ Coding - Benjamin Blundell obj. section9.co.uk
       var _this = this;
       obj.video_element = document.getElementById("video_lexus");
       obj.video_element.preload = "auto";
-      if (obj.profile.browser === "Firefox") {
+      if (CoffeeGL.Context.profile.browser === "Firefox") {
         obj.video_element.src = "/H&L-Lexus-Edit01-final01.ogv";
       } else {
         obj.video_element.src = "/H&L-Lexus-Edit01-final01.mp4";
@@ -802,7 +819,7 @@ Coding - Benjamin Blundell obj. section9.co.uk
           obj.webcam_node.add(obj.wt);
           obj.webcam_element.play();
           obj.webcam_ready = true;
-          obj.optical_flow = new OpticalFlow(obj.webcam_element, obj.webcam_canvas);
+          obj.optical_flow = new OpticalFlow(obj.webcam_element, obj.webcam_canvas, obj.plane_xres, obj.plane_yres);
           _this.loaded();
           return console.log("Webcam Loaded", obj.webcam_element.videoWidth, obj.webcam_element.videoHeight);
         }
@@ -864,17 +881,22 @@ Coding - Benjamin Blundell @ section9.co.uk
   var OpticalFlow;
 
   OpticalFlow = (function() {
-    function OpticalFlow(dom_webcam, dom_canvas) {
+    function OpticalFlow(dom_webcam, dom_canvas, grid_x, grid_y) {
+      var i, idx, offset, _i, _ref;
       this.dom_webcam = dom_webcam;
       this.dom_canvas = dom_canvas;
+      this.grid_x = grid_x;
+      this.grid_y = grid_y;
       this.curr_img_pyr = new jsfeat.pyramid_t(3);
       this.prev_img_pyr = new jsfeat.pyramid_t(3);
       this.curr_img_pyr.allocate(this.dom_webcam.videoWidth, this.dom_webcam.videoHeight, jsfeat.U8_t | jsfeat.C1_t);
       this.prev_img_pyr.allocate(this.dom_webcam.videoWidth, this.dom_webcam.videoHeight, jsfeat.U8_t | jsfeat.C1_t);
+      this.max_points = this.grid_x * this.grid_y;
       this.point_count = 0;
-      this.point_status = new Uint8Array(100);
-      this.prev_xy = new Float32Array(100 * 2);
-      this.curr_xy = new Float32Array(100 * 2);
+      this.point_status = new Uint8Array(this.max_points);
+      this.prev_xy = new Float32Array(this.max_points * 2);
+      this.curr_xy = new Float32Array(this.max_points * 2);
+      this.base_xy = new Float32Array(this.max_points * 2);
       this.options = {};
       this.options['win_size'] = 7;
       this.options['max_iterations'] = 4;
@@ -885,21 +907,68 @@ Coding - Benjamin Blundell @ section9.co.uk
       this.ctx = this.dom_canvas.getContext('2d');
       this.ctx.fillStyle = "rgb(0,255,0)";
       this.ctx.strokeStyle = "rgb(0,255,0)";
+      for (i = _i = 0, _ref = this.max_points - 1; 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
+        offset = 0;
+        if (Math.floor(i / this.grid_x) % 2 === 0) {
+          offset = this.dom_webcam.videoWidth / (2 * this.grid_x);
+        }
+        idx = i << 1;
+        this.curr_xy[idx] = Math.floor(((i % this.grid_x) / this.grid_x) * this.dom_webcam.videoWidth + offset);
+        this.curr_xy[idx + 1] = Math.floor((Math.floor(i / this.grid_x) / this.grid_y) * this.dom_webcam.videoHeight);
+        this.base_xy[idx] = this.curr_xy[idx];
+        this.base_xy[idx + 1] = this.curr_xy[idx + 1];
+      }
+      this.point_count = this.max_points;
       this;
     }
 
+    OpticalFlow.prototype.draw_circle = function(x, y) {
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, 4, 0, Math.PI * 2, true);
+      this.ctx.closePath();
+      return this.ctx.fill();
+    };
+
+    OpticalFlow.prototype.set_and_draw = function() {
+      var i, idx, _i, _ref, _results;
+      _results = [];
+      for (i = _i = 0, _ref = this.max_points - 1; 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
+        idx = i << 1;
+        if (this.point_status[i] === 0) {
+          this.curr_xy[idx] = this.base_xy[idx];
+          this.curr_xy[idx + 1] = this.base_xy[idx + 1];
+        }
+        _results.push(this.draw_circle(this.curr_xy[idx], this.curr_xy[idx + 1]));
+      }
+      return _results;
+    };
+
+    OpticalFlow.prototype.active_intersections = function() {
+      var active, i, idx, _i, _ref;
+      active = [];
+      for (i = _i = 0, _ref = this.max_points - 1; 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
+        idx = i << 1;
+        if (this.point_status[i] === 1) {
+          active.push([[this.curr_xy[idx], this.curr_xy[idx + 1]], [this.prev_xy[idx], this.prev_xy[idx + 1]]]);
+        }
+      }
+      return active;
+    };
+
     OpticalFlow.prototype.update = function(dt) {
-      var _pt_xy, _pyr;
+      var imageData, _pt_xy, _pyr;
       this.ctx.drawImage(this.dom_webcam, 0, 0, this.dom_webcam.videoWidth, this.dom_webcam.videoHeight);
+      imageData = this.ctx.getImageData(0, 0, this.dom_webcam.videoWidth, this.dom_webcam.videoHeight);
       _pt_xy = this.prev_xy;
       this.prev_xy = this.curr_xy;
       this.curr_xy = _pt_xy;
       _pyr = this.prev_img_pyr;
       this.prev_img_pyr = this.curr_img_pyr;
       this.curr_img_pyr = _pyr;
-      jsfeat.imgproc.grayscale(this.dom_webcam, this.dom_webcam.videoWidth, this.dom_webcam.videoHeight, this.curr_img_pyr.data[0]);
+      jsfeat.imgproc.grayscale(imageData.data, this.dom_webcam.videoWidth, this.dom_webcam.videoHeight, this.curr_img_pyr.data[0]);
       this.curr_img_pyr.build(this.curr_img_pyr.data[0], true);
-      return jsfeat.optical_flow_lk.track(this.prev_img_pyr, this.curr_img_pyr, this.prev_xy, this.curr_xy, this.point_count, this.options.win_size | 0, this.options.max_iterations | 0, this.point_status, this.options.epsilon, this.options.min_eigen);
+      jsfeat.optical_flow_lk.track(this.prev_img_pyr, this.curr_img_pyr, this.prev_xy, this.curr_xy, this.max_points, this.options.win_size | 0, this.options.max_iterations | 0, this.point_status, this.options.epsilon, this.options.min_eigen);
+      return this.set_and_draw();
     };
 
     return OpticalFlow;

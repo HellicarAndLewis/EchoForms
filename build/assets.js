@@ -35,7 +35,7 @@ Coding - Benjamin Blundell obj. section9.co.uk
       var _this = this;
       obj.video_element = document.getElementById("video_lexus");
       obj.video_element.preload = "auto";
-      if (obj.profile.browser === "Firefox") {
+      if (CoffeeGL.Context.profile.browser === "Firefox") {
         obj.video_element.src = "/H&L-Lexus-Edit01-final01.ogv";
       } else {
         obj.video_element.src = "/H&L-Lexus-Edit01-final01.mp4";
@@ -76,7 +76,7 @@ Coding - Benjamin Blundell obj. section9.co.uk
           obj.webcam_node.add(obj.wt);
           obj.webcam_element.play();
           obj.webcam_ready = true;
-          obj.optical_flow = new OpticalFlow(obj.webcam_element, obj.webcam_canvas);
+          obj.optical_flow = new OpticalFlow(obj.webcam_element, obj.webcam_canvas, obj.plane_xres, obj.plane_yres);
           _this.loaded();
           return console.log("Webcam Loaded", obj.webcam_element.videoWidth, obj.webcam_element.videoHeight);
         }

@@ -134,11 +134,9 @@ class Kaliedoscope
 
 
   # We do this in CPU space as there is no real speed issue
-  morphPlane : () ->
+  morphPlane : (intersect, intersect_prev) ->
 
-    if not @mouse_pressed
-      return
-
+  
     idt = 0 
     idc = 0
     np = new CoffeeGL.Vec3 0,0,0
@@ -154,10 +152,10 @@ class Kaliedoscope
 
         @video_node.matrix.multVec(np)
 
-        force = CoffeeGL.Vec3.sub(@intersect, @intersect_prev)
-        force_dist = @intersect.dist @intersect_prev
+        force = CoffeeGL.Vec3.sub(intersect, intersect_prev)
+        force_dist = intersect.dist intersect_prev
 
-        dd = np.dist @intersect
+        dd = np.dist intersect
       
         if force_dist > 0.01
 
@@ -321,6 +319,9 @@ class Kaliedoscope
     @intersect = new CoffeeGL.Vec3 0,0,0
     @selected_tris = @selected_tris_prev = -1
 
+    @intersect_prev_optical = new CoffeeGL.Vec3 0,0,0
+    @intersect_optical = new CoffeeGL.Vec3 0,0,0
+
     # Warp parameters
     @warp =
       exponent  : 2
@@ -381,9 +382,6 @@ class Kaliedoscope
       @video_element.play()
       @video_node.add @t
 
-
-
-    
     if not @state_loaded
       loadAssets @
 
@@ -508,8 +506,10 @@ class Kaliedoscope
       @shader_face.setUniform1f "uAlphaScalar", @highLight.alpha_scalar
 
     @naturalForce()
-     
-    @morphPlane()
+    
+    if @mouse_pressed
+      @morphPlane(@intersect, @intersect_prev)
+    
     @copyToFace()
 
     @updateFaceHighlight(@selected_tris)
@@ -522,6 +522,24 @@ class Kaliedoscope
     # Update the jsfeat points
     @optical_flow.update(dt)
 
+    # Now look at these points that are moving and perform some interaction
+    active_flow = @optical_flow.active_intersections()
+
+    for i in active_flow
+      now = i[0]
+      prev = i[1]
+
+      @intersect_prev_optical.x = prev[0] / @webcam_element.videoWidth * 2 - 1
+      @intersect_prev_optical.y = prev[1] / @webcam_element.videoHeight * 2 - 1
+      @intersect_prev_optical.z = 0.001
+      @intersect_optical.x = now[0] / @webcam_element.videoWidth * 2 - 1
+      @intersect_optical.y = now[1] / @webcam_element.videoHeight * 2 - 1
+      @intersect_optical.z = 0.001
+      #console.log @intersect_optical
+
+      @morphPlane(@intersect_optical, @intersect_prev_optical)
+
+      #console.log @intersect_optical
 
   update : (dt) -> 
 
