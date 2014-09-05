@@ -30,6 +30,7 @@ web: build
 	${UGLIFY} build/${PROJECT}_full.js > build/${PROJECT}.min.js
 	cp build/${PROJECT}_full.js html/js/${PROJECT}.js
 	cp build/${PROJECT}.min.js html/js/${PROJECT}.min.js
+	#cp build/flow.js html/js/flow.js
 
 docs:
 	docco src/*.coffee

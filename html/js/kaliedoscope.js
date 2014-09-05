@@ -10,7 +10,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
 
 (function() {
-  var Kaliedoscope, canvas, credits_resize, kaliedoscopeWebGL, kk, loadAssets, params,
+  var Kaliedoscope, canvas, credits_resize, kaliedoscopeWebGL, keypressed, kk, loadAssets, params,
     __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
@@ -258,7 +258,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     };
 
     Kaliedoscope.prototype.init = function() {
-      var i, r2, r3, _i,
+      var i, r2, r3, r4, _i,
         _this = this;
       if (this.state_ready == null) {
         this.state_ready = false;
@@ -290,9 +290,15 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         colour_buffer_access: GL.DYNAMIC_DRAW
       });
       this.geomTrans(CoffeeGL.Context.width, CoffeeGL.Context.height);
-      r2 = new CoffeeGL.Request('/basic_texture.glsl');
+      this.webcam_node_draw = false;
+      this.webcam_node = new CoffeeGL.Node(new CoffeeGL.Quad());
+      r2 = new CoffeeGL.Request('/kaliedoscope.glsl');
       r2.get(function(data) {
         return _this.shader = new CoffeeGL.Shader(data);
+      });
+      r4 = new CoffeeGL.Request('/basic_texture.glsl');
+      r4.get(function(data) {
+        return _this.shader_basic = new CoffeeGL.Shader(data);
       });
       r3 = new CoffeeGL.Request('/face.glsl');
       r3.get(function(data) {
@@ -338,6 +344,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       this.camera.setViewport(CoffeeGL.Context.width, CoffeeGL.Context.height);
       this.video_node.add(this.camera);
       this.face_node.add(this.camera);
+      this.webcam_node.add(this.camera);
       this.t = new CoffeeGL.TextureBase({
         width: 256,
         height: 256
@@ -349,11 +356,6 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       } else {
         this.video_element.play();
         this.video_node.add(this.t);
-      }
-      if (this.webcam_ready == null) {
-        this.webcam_ready = false;
-      } else {
-        this.webcam_node.add(this.wt);
       }
       if (!this.state_loaded) {
         loadAssets(this);
@@ -384,6 +386,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       CoffeeGL.Context.mouseOver.add(this.mouseOver, this);
       CoffeeGL.Context.mouseDown.add(this.mouseDown, this);
       CoffeeGL.Context.mouseUp.add(this.mouseUp, this);
+      CoffeeGL.Context.keyPress.add(this.keyPress, this);
       this.mouse_over = false;
       return this.mouse_pressed = false;
     };
@@ -483,7 +486,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         this.t.update(this.video_element);
       }
       if (this.webcam_ready) {
-        this.wt.update(this.webcam.dom_object);
+        this.wt.update(this.webcam_element);
       }
       if (this.shader != null) {
         this.shader.bind();
@@ -509,8 +512,9 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       });
       this.springBack();
       if (this.sound_on) {
-        return this.playSound();
+        this.playSound();
       }
+      return this.optical_flow.update(dt);
     };
 
     Kaliedoscope.prototype.update = function(dt) {
@@ -538,7 +542,13 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       this.shader.bind();
       this.video_node.draw();
       this.shader_face.bind();
-      return this.face_node.draw();
+      this.face_node.draw();
+      if (this.webcam_node_draw) {
+        this.shader_basic.bind();
+        GL.disable(GL.BLEND);
+        this.webcam_node.draw();
+        return GL.enable(GL.BLEND);
+      }
     };
 
     Kaliedoscope.prototype.drawLoading = function() {
@@ -634,6 +644,8 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       }
     };
 
+    Kaliedoscope.prototype.keyPress = function(event) {};
+
     Kaliedoscope.prototype.shutdown = function() {
       var sound_short_triggers, video;
       sound_short_triggers = [];
@@ -685,14 +697,19 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
   kaliedoscopeWebGL = new CoffeeGL.App(params);
 
-  /*
-  keypressed = (event) ->
-    if event.keyCode == 115
-      kaliedoscopeWebGL.shutdown()
-    else if event.keyCode == 103
-      kaliedoscopeWebGL.startup()
-  */
+  keypressed = function(event) {
+    var dm;
+    if (event.keyCode === 119) {
+      dm = document.getElementById('webcam-canvas');
+      if (dm.style.display === "block") {
+        return dm.style.display = "none";
+      } else {
+        return dm.style.display = "block";
+      }
+    }
+  };
 
+  canvas.addEventListener("keypress", keypressed);
 
   if (typeof window !== "undefined" && window !== null) {
     window.addEventListener('resize', kk.resize, false);
@@ -715,7 +732,9 @@ Coding - Benjamin Blundell obj. section9.co.uk
 
 
 (function() {
-  var loadAssets;
+  var OpticalFlow, loadAssets;
+
+  OpticalFlow = require('./flow').OpticalFlow;
 
   loadAssets = function(obj) {
     var a, b, i, _genLoadAudio, _i, _loadVideo, _loadWebcam,
@@ -740,9 +759,13 @@ Coding - Benjamin Blundell obj. section9.co.uk
     obj.lq = new CoffeeGL.Loader.LoadQueue(obj, a, b);
     _loadVideo = new CoffeeGL.Loader.LoadItem(function() {
       var _this = this;
-      obj.video_element = document.getElementById("video");
+      obj.video_element = document.getElementById("video_lexus");
       obj.video_element.preload = "auto";
-      obj.video_element.src = "/H&L-Lexus-Edit01-final01.mp4";
+      if (obj.profile.browser === "Firefox") {
+        obj.video_element.src = "/H&L-Lexus-Edit01-final01.ogv";
+      } else {
+        obj.video_element.src = "/H&L-Lexus-Edit01-final01.mp4";
+      }
       obj.video_element.addEventListener("ended", function() {
         obj.video_element.currentTime = 0;
         return obj.video_element.play();
@@ -767,14 +790,21 @@ Coding - Benjamin Blundell obj. section9.co.uk
     });
     _loadWebcam = new CoffeeGL.Loader.LoadItem(function() {
       var _this = this;
-      self.webcam_element = document.getElementById("video_webcam");
-      self.webcam = CoffeeGL.WebCamRTC("video_webcam");
-      return self.webcam_element.oncanplay = function(event) {
-        if (!self.webcam_ready) {
-          self.webcam_element.play();
-          self.webcam_ready = true;
-          obj.loaded();
-          return console.log("Webcam Loaded");
+      obj.webcam_element = document.getElementById("video_webcam");
+      obj.webcam_canvas = document.getElementById("webcam-canvas");
+      obj.webcam = new CoffeeGL.WebCamRTC("video_webcam", 640, 480, false);
+      return obj.webcam_element.oncanplay = function(event) {
+        if (!obj.webcam_ready) {
+          obj.wt = new CoffeeGL.TextureBase({
+            width: obj.webcam_element.videoWidth,
+            height: obj.webcam_element.videoHeight
+          });
+          obj.webcam_node.add(obj.wt);
+          obj.webcam_element.play();
+          obj.webcam_ready = true;
+          obj.optical_flow = new OpticalFlow(obj.webcam_element, obj.webcam_canvas);
+          _this.loaded();
+          return console.log("Webcam Loaded", obj.webcam_element.videoWidth, obj.webcam_element.videoHeight);
         }
       };
     });
@@ -806,6 +836,7 @@ Coding - Benjamin Blundell obj. section9.co.uk
         return _loadAudioSample;
       });
     };
+    obj.lq.add(_loadWebcam);
     obj.lq.add(_loadVideo);
     obj.lq.add(_genLoadAudio('/sound/long/Lexus.mp3', obj.sounds_long, true));
     for (i = _i = 0; _i <= 5; i = ++_i) {
@@ -817,6 +848,66 @@ Coding - Benjamin Blundell obj. section9.co.uk
 
   module.exports = {
     loadAssets: loadAssets
+  };
+
+}).call(this);
+
+},{"./flow":3}],3:[function(require,module,exports){
+// Generated by CoffeeScript 1.6.3
+/*
+Echo Forms - Hellicar & Lewis
+Coding - Benjamin Blundell @ section9.co.uk
+*/
+
+
+(function() {
+  var OpticalFlow;
+
+  OpticalFlow = (function() {
+    function OpticalFlow(dom_webcam, dom_canvas) {
+      this.dom_webcam = dom_webcam;
+      this.dom_canvas = dom_canvas;
+      this.curr_img_pyr = new jsfeat.pyramid_t(3);
+      this.prev_img_pyr = new jsfeat.pyramid_t(3);
+      this.curr_img_pyr.allocate(this.dom_webcam.videoWidth, this.dom_webcam.videoHeight, jsfeat.U8_t | jsfeat.C1_t);
+      this.prev_img_pyr.allocate(this.dom_webcam.videoWidth, this.dom_webcam.videoHeight, jsfeat.U8_t | jsfeat.C1_t);
+      this.point_count = 0;
+      this.point_status = new Uint8Array(100);
+      this.prev_xy = new Float32Array(100 * 2);
+      this.curr_xy = new Float32Array(100 * 2);
+      this.options = {};
+      this.options['win_size'] = 7;
+      this.options['max_iterations'] = 4;
+      this.options['epsilon'] = 0.01;
+      this.options['min_eigen'] = 0.01;
+      this.dom_canvas.width = this.dom_webcam.videoWidth;
+      this.dom_canvas.height = this.dom_webcam.videoHeight;
+      this.ctx = this.dom_canvas.getContext('2d');
+      this.ctx.fillStyle = "rgb(0,255,0)";
+      this.ctx.strokeStyle = "rgb(0,255,0)";
+      this;
+    }
+
+    OpticalFlow.prototype.update = function(dt) {
+      var _pt_xy, _pyr;
+      this.ctx.drawImage(this.dom_webcam, 0, 0, this.dom_webcam.videoWidth, this.dom_webcam.videoHeight);
+      _pt_xy = this.prev_xy;
+      this.prev_xy = this.curr_xy;
+      this.curr_xy = _pt_xy;
+      _pyr = this.prev_img_pyr;
+      this.prev_img_pyr = this.curr_img_pyr;
+      this.curr_img_pyr = _pyr;
+      jsfeat.imgproc.grayscale(this.dom_webcam, this.dom_webcam.videoWidth, this.dom_webcam.videoHeight, this.curr_img_pyr.data[0]);
+      this.curr_img_pyr.build(this.curr_img_pyr.data[0], true);
+      return jsfeat.optical_flow_lk.track(this.prev_img_pyr, this.curr_img_pyr, this.prev_xy, this.curr_xy, this.point_count, this.options.win_size | 0, this.options.max_iterations | 0, this.point_status, this.options.epsilon, this.options.min_eigen);
+    };
+
+    return OpticalFlow;
+
+  })();
+
+  module.exports = {
+    OpticalFlow: OpticalFlow
   };
 
 }).call(this);

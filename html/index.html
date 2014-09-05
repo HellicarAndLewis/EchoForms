@@ -68,18 +68,33 @@
 <header></header>
 
 <style>
-  video {
+  #video_lexus {
     display: none;
+  }
+
+  #video_webcam {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+
+  #webcam-canvas {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 0;
   }
 
 </style>
 
-<video id="video" loop="loop">
+<video id="video_lexus" loop="loop">
 </video>
 
-<!--
 <video id="video_webcam">
-</video>-->
+</video>
+
+<canvas id="webcam-canvas" tabindex="1"></canvas>
 
 <div id="credits">
 <p><h3>"Echo Forms: an audiovisual Kaleidoscope"</h3></p>
@@ -102,6 +117,7 @@ Photography and Editing by Robbie Newby<br/>
 <script type="text/javascript" src="/js/jquery-2.1.1.min.js"></script>
 <script type="text/javascript" src="/js/bootstrap.min.js"></script>
 <script type="text/javascript" src="/js/howler.min.js"></script>
+<script type="text/javascript" src="/js/jsfeat-min.js"></script>
 <script type="text/javascript" src="/js/kaliedoscope.js"></script>
 
 </body>

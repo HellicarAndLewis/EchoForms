@@ -8,6 +8,8 @@ Coding - Benjamin Blundell obj. section9.co.uk
 # Maybe this should be a class but I've split this out as its logically a little
 # different to the Kaleidoscope itself - its a decorator really
 
+{OpticalFlow} = require './flow'
+
 loadAssets = (obj) ->
 
   a = () =>
@@ -35,9 +37,14 @@ loadAssets = (obj) ->
 
   _loadVideo = new CoffeeGL.Loader.LoadItem () ->
 
-    obj.video_element = document.getElementById "video"
+    obj.video_element = document.getElementById "video_lexus"
     obj.video_element.preload = "auto"
-    obj.video_element.src = "/H&L-Lexus-Edit01-final01.mp4"
+
+    # Select different video format depending on the browser
+    if obj.profile.browser == "Firefox"
+      obj.video_element.src = "/H&L-Lexus-Edit01-final01.ogv"
+    else
+      obj.video_element.src = "/H&L-Lexus-Edit01-final01.mp4"
 
     obj.video_element.addEventListener "ended", () ->
       obj.video_element.currentTime = 0
@@ -72,15 +79,29 @@ loadAssets = (obj) ->
   # Get access to the webcam for our optical flow
   _loadWebcam = new CoffeeGL.Loader.LoadItem () ->
 
-    self.webcam_element = document.getElementById "video_webcam"
-    self.webcam = CoffeeGL.WebCamRTC("video_webcam")
+    obj.webcam_element = document.getElementById "video_webcam"
+    obj.webcam_canvas = document.getElementById "webcam-canvas"
+    obj.webcam = new CoffeeGL.WebCamRTC("video_webcam",640,480,false)
   
-    self.webcam_element.oncanplay = (event) =>
-      if not self.webcam_ready
-        self.webcam_element.play()
-        self.webcam_ready = true
-        obj.loaded()
-        console.log "Webcam Loaded"
+    obj.webcam_element.oncanplay = (event) =>
+      if not obj.webcam_ready
+
+        # Create the texture that matches the webcam size
+        obj.wt = new CoffeeGL.TextureBase({ width: obj.webcam_element.videoWidth, height: obj.webcam_element.videoHeight })
+        obj.webcam_node.add obj.wt
+        obj.webcam_element.play()
+        obj.webcam_ready = true
+
+        # Turns out jsfeat needs the window object which sucks! ><
+
+        #obj.flow_worker = new Worker '/js/flow.js'
+        #obj.flow_worker.onmessage = obj.onFlowEvent
+        #obj.flow_worker.postMessage { cmd: "startup", data : obj.webcam_element }
+
+        obj.optical_flow = new OpticalFlow(obj.webcam_element, obj.webcam_canvas)
+
+        @loaded()
+        console.log "Webcam Loaded", obj.webcam_element.videoWidth, obj.webcam_element.videoHeight
 
   # Return Audio Load Items
   _genLoadAudio = (audio_url,attach,long) ->
@@ -107,7 +128,7 @@ loadAssets = (obj) ->
       return _loadAudioSample
 
 
-  #obj.lq.add _loadWebcam
+  obj.lq.add _loadWebcam
   obj.lq.add _loadVideo
 
   obj.lq.add _genLoadAudio('/sound/long/Lexus.mp3', obj.sounds_long, true)

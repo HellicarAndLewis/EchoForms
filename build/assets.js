@@ -6,7 +6,9 @@ Coding - Benjamin Blundell obj. section9.co.uk
 
 
 (function() {
-  var loadAssets;
+  var OpticalFlow, loadAssets;
+
+  OpticalFlow = require('./flow').OpticalFlow;
 
   loadAssets = function(obj) {
     var a, b, i, _genLoadAudio, _i, _loadVideo, _loadWebcam,
@@ -31,9 +33,13 @@ Coding - Benjamin Blundell obj. section9.co.uk
     obj.lq = new CoffeeGL.Loader.LoadQueue(obj, a, b);
     _loadVideo = new CoffeeGL.Loader.LoadItem(function() {
       var _this = this;
-      obj.video_element = document.getElementById("video");
+      obj.video_element = document.getElementById("video_lexus");
       obj.video_element.preload = "auto";
-      obj.video_element.src = "/H&L-Lexus-Edit01-final01.mp4";
+      if (obj.profile.browser === "Firefox") {
+        obj.video_element.src = "/H&L-Lexus-Edit01-final01.ogv";
+      } else {
+        obj.video_element.src = "/H&L-Lexus-Edit01-final01.mp4";
+      }
       obj.video_element.addEventListener("ended", function() {
         obj.video_element.currentTime = 0;
         return obj.video_element.play();
@@ -58,14 +64,21 @@ Coding - Benjamin Blundell obj. section9.co.uk
     });
     _loadWebcam = new CoffeeGL.Loader.LoadItem(function() {
       var _this = this;
-      self.webcam_element = document.getElementById("video_webcam");
-      self.webcam = CoffeeGL.WebCamRTC("video_webcam");
-      return self.webcam_element.oncanplay = function(event) {
-        if (!self.webcam_ready) {
-          self.webcam_element.play();
-          self.webcam_ready = true;
-          obj.loaded();
-          return console.log("Webcam Loaded");
+      obj.webcam_element = document.getElementById("video_webcam");
+      obj.webcam_canvas = document.getElementById("webcam-canvas");
+      obj.webcam = new CoffeeGL.WebCamRTC("video_webcam", 640, 480, false);
+      return obj.webcam_element.oncanplay = function(event) {
+        if (!obj.webcam_ready) {
+          obj.wt = new CoffeeGL.TextureBase({
+            width: obj.webcam_element.videoWidth,
+            height: obj.webcam_element.videoHeight
+          });
+          obj.webcam_node.add(obj.wt);
+          obj.webcam_element.play();
+          obj.webcam_ready = true;
+          obj.optical_flow = new OpticalFlow(obj.webcam_element, obj.webcam_canvas);
+          _this.loaded();
+          return console.log("Webcam Loaded", obj.webcam_element.videoWidth, obj.webcam_element.videoHeight);
         }
       };
     });
@@ -97,6 +110,7 @@ Coding - Benjamin Blundell obj. section9.co.uk
         return _loadAudioSample;
       });
     };
+    obj.lq.add(_loadWebcam);
     obj.lq.add(_loadVideo);
     obj.lq.add(_genLoadAudio('/sound/long/Lexus.mp3', obj.sounds_long, true));
     for (i = _i = 0; _i <= 5; i = ++_i) {

@@ -9,7 +9,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
 
 (function() {
-  var Kaliedoscope, canvas, credits_resize, kaliedoscopeWebGL, kk, loadAssets, params,
+  var Kaliedoscope, canvas, credits_resize, kaliedoscopeWebGL, keypressed, kk, loadAssets, params,
     __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
@@ -257,7 +257,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     };
 
     Kaliedoscope.prototype.init = function() {
-      var i, r2, r3, _i,
+      var i, r2, r3, r4, _i,
         _this = this;
       if (this.state_ready == null) {
         this.state_ready = false;
@@ -289,9 +289,15 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         colour_buffer_access: GL.DYNAMIC_DRAW
       });
       this.geomTrans(CoffeeGL.Context.width, CoffeeGL.Context.height);
-      r2 = new CoffeeGL.Request('/basic_texture.glsl');
+      this.webcam_node_draw = false;
+      this.webcam_node = new CoffeeGL.Node(new CoffeeGL.Quad());
+      r2 = new CoffeeGL.Request('/kaliedoscope.glsl');
       r2.get(function(data) {
         return _this.shader = new CoffeeGL.Shader(data);
+      });
+      r4 = new CoffeeGL.Request('/basic_texture.glsl');
+      r4.get(function(data) {
+        return _this.shader_basic = new CoffeeGL.Shader(data);
       });
       r3 = new CoffeeGL.Request('/face.glsl');
       r3.get(function(data) {
@@ -337,6 +343,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       this.camera.setViewport(CoffeeGL.Context.width, CoffeeGL.Context.height);
       this.video_node.add(this.camera);
       this.face_node.add(this.camera);
+      this.webcam_node.add(this.camera);
       this.t = new CoffeeGL.TextureBase({
         width: 256,
         height: 256
@@ -348,11 +355,6 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       } else {
         this.video_element.play();
         this.video_node.add(this.t);
-      }
-      if (this.webcam_ready == null) {
-        this.webcam_ready = false;
-      } else {
-        this.webcam_node.add(this.wt);
       }
       if (!this.state_loaded) {
         loadAssets(this);
@@ -383,6 +385,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       CoffeeGL.Context.mouseOver.add(this.mouseOver, this);
       CoffeeGL.Context.mouseDown.add(this.mouseDown, this);
       CoffeeGL.Context.mouseUp.add(this.mouseUp, this);
+      CoffeeGL.Context.keyPress.add(this.keyPress, this);
       this.mouse_over = false;
       return this.mouse_pressed = false;
     };
@@ -482,7 +485,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         this.t.update(this.video_element);
       }
       if (this.webcam_ready) {
-        this.wt.update(this.webcam.dom_object);
+        this.wt.update(this.webcam_element);
       }
       if (this.shader != null) {
         this.shader.bind();
@@ -508,8 +511,9 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       });
       this.springBack();
       if (this.sound_on) {
-        return this.playSound();
+        this.playSound();
       }
+      return this.optical_flow.update(dt);
     };
 
     Kaliedoscope.prototype.update = function(dt) {
@@ -537,7 +541,13 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       this.shader.bind();
       this.video_node.draw();
       this.shader_face.bind();
-      return this.face_node.draw();
+      this.face_node.draw();
+      if (this.webcam_node_draw) {
+        this.shader_basic.bind();
+        GL.disable(GL.BLEND);
+        this.webcam_node.draw();
+        return GL.enable(GL.BLEND);
+      }
     };
 
     Kaliedoscope.prototype.drawLoading = function() {
@@ -633,6 +643,8 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       }
     };
 
+    Kaliedoscope.prototype.keyPress = function(event) {};
+
     Kaliedoscope.prototype.shutdown = function() {
       var sound_short_triggers, video;
       sound_short_triggers = [];
@@ -684,14 +696,19 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
   kaliedoscopeWebGL = new CoffeeGL.App(params);
 
-  /*
-  keypressed = (event) ->
-    if event.keyCode == 115
-      kaliedoscopeWebGL.shutdown()
-    else if event.keyCode == 103
-      kaliedoscopeWebGL.startup()
-  */
+  keypressed = function(event) {
+    var dm;
+    if (event.keyCode === 119) {
+      dm = document.getElementById('webcam-canvas');
+      if (dm.style.display === "block") {
+        return dm.style.display = "none";
+      } else {
+        return dm.style.display = "block";
+      }
+    }
+  };
 
+  canvas.addEventListener("keypress", keypressed);
 
   if (typeof window !== "undefined" && window !== null) {
     window.addEventListener('resize', kk.resize, false);

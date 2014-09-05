@@ -9,6 +9,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
 {loadAssets} = require './assets'
 
+
 class Kaliedoscope  
   
   # Playing audio when a triangle is selected if it has a trigger
@@ -250,7 +251,7 @@ class Kaliedoscope
 
     @face_node.matrix.copyFrom @video_node.matrix
 
-
+ 
   init : () ->
 
     # State
@@ -293,10 +294,19 @@ class Kaliedoscope
 
     @geomTrans CoffeeGL.Context.width, CoffeeGL.Context.height
 
+
+    # Webcam Test Quad
+    @webcam_node_draw = false
+    @webcam_node = new CoffeeGL.Node new CoffeeGL.Quad()
+
     # Load shaders seperately as they are important to the context
-    r2 = new CoffeeGL.Request('/basic_texture.glsl')
+    r2 = new CoffeeGL.Request('/kaliedoscope.glsl')
     r2.get (data) =>
       @shader = new CoffeeGL.Shader(data)
+     
+    r4 = new CoffeeGL.Request('/basic_texture.glsl')
+    r4.get (data) =>
+      @shader_basic = new CoffeeGL.Shader(data)
     
     r3 = new CoffeeGL.Request('/face.glsl')
     r3.get (data) =>
@@ -351,9 +361,11 @@ class Kaliedoscope
 
     @video_node.add @camera
     @face_node.add @camera
+    @webcam_node.add @camera
     
     #if not @t?
     @t = new CoffeeGL.TextureBase({ width: 256, height: 256 })
+
 
     #GL.enable(GL.CULL_FACE)
     #GL.cullFace(GL.BACK)
@@ -370,11 +382,7 @@ class Kaliedoscope
       @video_node.add @t
 
 
-    # Video camera fire up
-    if not @webcam_ready? # Don't reload video if its already loaded
-      @webcam_ready = false
-    else
-      @webcam_node.add @wt
+
     
     if not @state_loaded
       loadAssets @
@@ -411,6 +419,11 @@ class Kaliedoscope
 
     # Setup touch listener
     #CoffeeGL.Context.touchSwipe.add @touchSwipe, @
+
+    # Setup keyboard listener
+    CoffeeGL.Context.keyPress.add @keyPress, @
+
+
 
     # Mouse states
     @mouse_over = false
@@ -482,7 +495,7 @@ class Kaliedoscope
   updateActual : (dt) ->
 
     @t.update @video_element if @video_ready
-    @wt.update @webcam.dom_object if @webcam_ready
+    @wt.update @webcam_element if @webcam_ready
 
     if @shader?
       @shader.bind()
@@ -505,6 +518,9 @@ class Kaliedoscope
     @face_node.rebrew( { position_buffer : 0, colour_buffer: 0})
     @springBack()
     @playSound() if @sound_on
+
+    # Update the jsfeat points
+    @optical_flow.update(dt)
 
 
   update : (dt) -> 
@@ -535,6 +551,13 @@ class Kaliedoscope
     @video_node.draw()
     @shader_face.bind()
     @face_node.draw()
+
+    # Draw the debug webcam view
+    if @webcam_node_draw
+      @shader_basic.bind()
+      GL.disable(GL.BLEND)
+      @webcam_node.draw()
+      GL.enable(GL.BLEND)
 
   # draw the loading screen
   drawLoading : () ->  
@@ -630,6 +653,12 @@ class Kaliedoscope
       @sounds_long[0].fadeOut(1.0)
       @sounds_long[0].playing = false
 
+  keyPress : (event) ->
+    #console.log event
+    # w key - toggle webcam draw
+    #if event.keyCode == 119
+    #  @webcam_node_draw = !@webcam_node_draw
+
   # Called when we shutdown rendering
   shutdown : () ->
 
@@ -684,16 +713,19 @@ params =
 
 kaliedoscopeWebGL = new CoffeeGL.App(params)
 
-###
+# Keypress callbacks for non WebGL related things such as the 2D Video canvas
 keypressed = (event) ->
-  if event.keyCode == 115
-    kaliedoscopeWebGL.shutdown()
-  else if event.keyCode == 103
-    kaliedoscopeWebGL.startup()
-###
+  # If 'w' is pressed toggle the flow canvas
+  if event.keyCode == 119
+    dm = document.getElementById 'webcam-canvas'
+    if dm.style.display == "block"
+      dm.style.display = "none"
+    else
+      dm.style.display = "block"
 
-#canvas.addEventListener "keypress", keypressed
 
+# Add callbacks
+canvas.addEventListener "keypress", keypressed
 window.addEventListener('resize', kk.resize, false) if window?
 window.addEventListener('resize', credits_resize, false) if window?
 credits_resize()
