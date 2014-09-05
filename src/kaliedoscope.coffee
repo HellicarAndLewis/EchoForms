@@ -1,115 +1,15 @@
 ###
-Kaliedoscope Test
+Echo Forms - Hellicar & Lewis
+Coding - Benjamin Blundell @ section9.co.uk
+
 
 http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
 ###
 
+{loadAssets} = require './assets'
 
-class Kaliedoscope
-
-  # Simple loading queue - We need to add some funky functions for the loading of
-  # faces and things
-  loadAssets : () ->
-
-  
-    a = () =>
-
-      for i in [0..10]
-        tt =  Math.floor(Math.random() * @colour_palette.length)
-
-        item =
-          target : @colour_palette[tt]
-          colour : new CoffeeGL.Colour.RGBA.BLACK()
-          idx : Math.floor(Math.random() * @plane.getNumTris())
-
-        @loading_items.push item
-
-      console.log ( "Loaded: " + @lq.completed_items.length / @lq.items.length)
-
-    b = () =>
-      console.log "Loaded All"
-      @state_loaded = true
-
-
-    @lq = new CoffeeGL.Loader.LoadQueue @, a, b
-
-    self = @
-    # Load the major video
-
-    _loadVideo = new CoffeeGL.Loader.LoadItem () ->
-
-      self.video_element = document.getElementById "video"
-      self.video_element.preload = "auto"
-      self.video_element.src = "/H&L-Lexus-Edit01-final01.mp4"
-
-      self.video_element.addEventListener "ended", () ->
-        self.video_element.currentTime = 0
-        self.video_element.play()
-      ,false
-
-      # This is a cheat to get the video lopping as nothing else works ><
-      # Actually, a proper server link nginx works fine. Its to do with partial downloads
-      self.video_element.addEventListener "timeupdate", () ->
-        #console.log self.video_element.currentTime
-        if self.video_element.currentTime > 53 
-          self.video_element.pause()
-          self.video_element.currentTime = 0
-          self.video_element.play()
-          return
-      ,false
-
-      self.video_element.oncanplay = (event) =>
-        # This play pause stuff is needed to get around events not firing ><
-        if not self.video_ready
-          #self.video_element.play()
-          #self.video_element.pause()
-          #self.video_element.currentTime = 0
-          self.video_element.play()
-          self.t.update self.video_element
-          self.video_node.add self.t
-          self.video_ready = true
-
-          @loaded()
-          console.log "Video Loaded"
-
-    # Return Audio Load Items
-    _genLoadAudio = (audio_url,attach,long) ->
-
-      _loadAudioSample = new CoffeeGL.Loader.LoadItem () ->
-        sound = new Howl {
-          urls: [audio_url]
-          onload : () =>
-            attach.push sound
-            sound.playing = false
-            @loaded()
-
-          onplay : () ->
-            @playing  = true
-            if long
-              self.sound_long_playing = true
-
-          onend : () ->
-            @playing  = false
-            if long
-              self.sound_long_playing = false
-        }
-
-        return _loadAudioSample
-
-  
-    @lq.add _loadVideo
-  
-    @lq.add _genLoadAudio('/sound/long/Lexus.mp3', @sounds_long, true)
-
-    # Short sounds
-    for i in [0..5] 
-      @lq.add _genLoadAudio('/sound/short/sound00' + i + '.mp3', @sounds_short, false)
-
-    @lq.start()
-    
-  @
-
+class Kaliedoscope  
   
   # Playing audio when a triangle is selected if it has a trigger
 
@@ -468,9 +368,16 @@ class Kaliedoscope
     else
       @video_element.play()
       @video_node.add @t
+
+
+    # Video camera fire up
+    if not @webcam_ready? # Don't reload video if its already loaded
+      @webcam_ready = false
+    else
+      @webcam_node.add @wt
     
     if not @state_loaded
-      @loadAssets()
+      loadAssets @
 
     # GUI Setup
 
@@ -575,6 +482,8 @@ class Kaliedoscope
   updateActual : (dt) ->
 
     @t.update @video_element if @video_ready
+    @wt.update @webcam.dom_object if @webcam_ready
+
     if @shader?
       @shader.bind()
       @shader.setUniform1f "uClockTick", CoffeeGL.Context.contextTime 
