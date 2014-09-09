@@ -71,12 +71,18 @@ Coding - Benjamin Blundell obj. section9.co.uk
         if (!obj.webcam_ready) {
           obj.wt = new CoffeeGL.TextureBase({
             width: obj.webcam_element.videoWidth,
-            height: obj.webcam_element.videoHeight
+            height: obj.webcam_element.videoHeight,
+            unit: 1
           });
           obj.webcam_node.add(obj.wt);
           obj.webcam_element.play();
           obj.webcam_ready = true;
+          obj.video_node.add(obj.wt);
           obj.optical_flow = new OpticalFlow(obj.webcam_element, obj.webcam_canvas, obj.plane_xres, obj.plane_yres);
+          obj.datg.add(obj.optical_flow.options, 'win_size', 7, 30).step(1);
+          obj.datg.add(obj.optical_flow.options, 'max_iterations', 3, 30).step(1);
+          obj.datg.add(obj.optical_flow.options, 'epsilon', 0.001, 0.1).step(0.0025);
+          obj.datg.add(obj.optical_flow.options, 'min_eigen', 0.001, 0.01).step(0.0001);
           _this.loaded();
           return console.log("Webcam Loaded", obj.webcam_element.videoWidth, obj.webcam_element.videoHeight);
         }

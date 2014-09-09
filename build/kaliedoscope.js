@@ -9,15 +9,18 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
 
 (function() {
-  var Kaliedoscope, canvas, credits_resize, kaliedoscopeWebGL, keypressed, kk, loadAssets, params,
+  var Kaliedoscope, QueryString, canvas, credits_resize, gridx, gridy, kaliedoscopeWebGL, keypressed, kk, loadAssets, params, url_vars,
     __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
   loadAssets = require('./assets').loadAssets;
 
   Kaliedoscope = (function() {
-    function Kaliedoscope() {
+    function Kaliedoscope(plane_xres, plane_yres) {
+      this.plane_xres = plane_xres;
+      this.plane_yres = plane_yres;
       this.resize = __bind(this.resize, this);
+      this;
     }
 
     Kaliedoscope.prototype.playSound = function() {
@@ -254,7 +257,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     };
 
     Kaliedoscope.prototype.init = function() {
-      var i, r2, r3, r4, _i,
+      var i, r2, r3, r4, yevent, _i,
         _this = this;
       if (this.state_ready == null) {
         this.state_ready = false;
@@ -272,8 +275,6 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       if (this.colour_palette == null) {
         this.colour_palette = [new CoffeeGL.Colour.RGBA(31, 169, 225), new CoffeeGL.Colour.RGBA(34, 54, 107), new CoffeeGL.Colour.RGBA(240, 77, 35), new CoffeeGL.Colour.RGBA(228, 198, 158), new CoffeeGL.Colour.RGBA(195, 206, 207)];
       }
-      this.plane_yres = 7;
-      this.plane_xres = 15;
       this.setupPlane();
       this.video_node = new CoffeeGL.Node(this.plane);
       this.face_node = new CoffeeGL.Node(this.plane_face);
@@ -310,13 +311,13 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       this.intersect_optical = new CoffeeGL.Vec3(0, 0, 0);
       this.warp = {
         exponent: 2,
-        force: 0.004 + (Math.random() * 0.001),
-        range: 2.0 + (Math.random() * 0.5),
+        force: 0.0012 + (Math.random() * 0.001),
+        range: 1.0 + (Math.random() * 0.5),
         falloff_factor: 1.0,
-        springiness: 0.0019 + (Math.random() * 0.01),
+        springiness: 0.065 + (Math.random() * 0.01),
         springiness_exponent: 2.0,
         rot_speed: 4.0,
-        spring_damping: 0.26 + (Math.random() * 0.5),
+        spring_damping: 0.77 + (Math.random() * 0.15),
         natural_rate: 0.9,
         natural_force: 0.002
       };
@@ -324,6 +325,14 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         speed_in: 0.1 + (-0.01 + Math.random() * 0.02),
         speed_out: 0.009 + (Math.random() * 0.01),
         alpha_scalar: 0.24 + (Math.random() * 0.01)
+      };
+      this.webcam_params = {
+        fader: 0.0,
+        fade_duration: 3.0,
+        fade_current_duration: 0,
+        fade_target: 0,
+        fade_time: 60.0,
+        fade_current_time: 0
       };
       this.sound_long_playing = false;
       this.sound_on = true;
@@ -358,33 +367,58 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       if (!this.state_loaded) {
         loadAssets(this);
       }
-      /*
-      datg = new dat.GUI()
-      datg.remember(@)
-      
-      datg.add(@warp,'exponent',1.0,5.0)
-      datg.add(@warp,'force',0.0001,0.01)
-      datg.add(@warp,'range',0.1,5.0)
-      datg.add(@warp,'springiness', 0.0001, 0.01)
-      datg.add(@warp,'spring_damping', 0.1, 1.0)
-      datg.add(@warp,'rot_speed', 0.01, 10.0)
-      datg.add(@warp,'natural_rate', 0.1, 1.0)
-      datg.add(@warp,'natural_force', 0.0001, 0.01)
-      datg.add(@,'sound_on')
-      datg.add(@highLight,'speed_in', 0.001, 0.1)
-      datg.add(@highLight,'speed_out', 0.001, 0.1)
-      datg.add(@highLight, 'alpha_scalar',0.1,1.0)
-      
-      datg.add(@dof_params,'focal_range', 0.001, 1.0)
-      datg.add(@dof_params, 'focal_distance',0.1,10.0)
-      */
-
+      this.youtube_id = "";
+      this.youtube_ready = false;
+      this.datg = new dat.GUI();
+      this.datg.remember(this);
+      this.datg.add(this.warp, 'exponent', 1.0, 5.0);
+      this.datg.add(this.warp, 'force', 0.0001, 0.01);
+      this.datg.add(this.warp, 'range', 0.1, 5.0);
+      this.datg.add(this.warp, 'springiness', 0.0001, 0.1).step(0.0001);
+      this.datg.add(this.warp, 'spring_damping', 0.1, 1.0).step(0.001);
+      this.datg.add(this.warp, 'rot_speed', 0.01, 10.0);
+      this.datg.add(this.warp, 'natural_rate', 0.1, 1.0);
+      this.datg.add(this.warp, 'natural_force', 0.0001, 0.01);
+      this.datg.add(this, 'sound_on');
+      this.datg.add(this.highLight, 'speed_in', 0.001, 0.1);
+      this.datg.add(this.highLight, 'speed_out', 0.001, 0.1);
+      this.datg.add(this.highLight, 'alpha_scalar', 0.1, 1.0);
+      this.datg.add(this.webcam_params, 'fader', 0.0, 1.0).step(0.01);
+      this.datg.add(this.webcam_params, 'fade_time', 0, 600).step(1);
+      this.datg.add(this.webcam_params, 'fade_duration', 0, 10).step(0.1);
+      this.youtube_element = document.getElementById("video_youtube");
+      yevent = this.datg.add(this, 'youtube_id');
+      yevent.onFinishChange(function(value) {
+        var ry;
+        _this.video_ready = false;
+        ry = new CoffeeGL.Request('/youtube?id=' + _this.youtube_id);
+        return ry.get(function(data) {
+          if (data === "error") {
+            return;
+          }
+          _this.video_element.pause();
+          _this.youtube_element.src = data;
+          _this.youtube_element.addEventListener("ended", function() {
+            this.youtube_element.currentTime = 0;
+            return this.youtube_element.play();
+          }, false);
+          return _this.youtube_element.oncanplay = function(event) {
+            _this.t = new CoffeeGL.TextureBase({
+              width: _this.youtube_element.videoWidth,
+              height: _this.youtube_element.videoHeight
+            });
+            _this.youtube_element.play();
+            _this.t.update(_this.youtube_element);
+            return _this.youtube_ready = true;
+          };
+        });
+      });
+      dat.GUI.toggleHide();
       CoffeeGL.Context.mouseMove.add(this.mouseMoved, this);
       CoffeeGL.Context.mouseOut.add(this.mouseOut, this);
       CoffeeGL.Context.mouseOver.add(this.mouseOver, this);
       CoffeeGL.Context.mouseDown.add(this.mouseDown, this);
       CoffeeGL.Context.mouseUp.add(this.mouseUp, this);
-      CoffeeGL.Context.keyPress.add(this.keyPress, this);
       this.mouse_over = false;
       return this.mouse_pressed = false;
     };
@@ -480,9 +514,11 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     };
 
     Kaliedoscope.prototype.updateActual = function(dt) {
-      var active_flow, i, now, prev, _i, _len, _results;
+      var active_flow, cur_now, cx, cy, dd, i, max_diff, max_now, now, prev, prev_now, px, py, _i, _len;
       if (this.video_ready) {
         this.t.update(this.video_element);
+      } else if (this.youtube_ready) {
+        this.t.update(this.youtube_element);
       }
       if (this.webcam_ready) {
         this.wt.update(this.webcam_element);
@@ -517,20 +553,55 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       }
       this.optical_flow.update(dt);
       active_flow = this.optical_flow.active_intersections();
-      _results = [];
+      max_diff = 0;
+      max_now = new CoffeeGL.Vec2(0, 0);
+      cur_now = new CoffeeGL.Vec2(0, 0);
+      prev_now = new CoffeeGL.Vec2(0, 0);
       for (_i = 0, _len = active_flow.length; _i < _len; _i++) {
         i = active_flow[_i];
         now = i[0];
         prev = i[1];
-        this.intersect_prev_optical.x = prev[0] / this.webcam_element.videoWidth * 2 - 1;
-        this.intersect_prev_optical.y = prev[1] / this.webcam_element.videoHeight * 2 - 1;
-        this.intersect_prev_optical.z = 0.001;
-        this.intersect_optical.x = now[0] / this.webcam_element.videoWidth * 2 - 1;
-        this.intersect_optical.y = now[1] / this.webcam_element.videoHeight * 2 - 1;
-        this.intersect_optical.z = 0.001;
-        _results.push(this.morphPlane(this.intersect_optical, this.intersect_prev_optical));
+        now[0] = this.webcam_element.videoWidth - now[0];
+        prev[0] = this.webcam_element.videoWidth - prev[0];
+        px = prev[0] / this.webcam_element.videoWidth * CoffeeGL.Context.width;
+        py = prev[1] / this.webcam_element.videoHeight * CoffeeGL.Context.height;
+        cx = now[0] / this.webcam_element.videoWidth * CoffeeGL.Context.width;
+        cy = now[1] / this.webcam_element.videoHeight * CoffeeGL.Context.height;
+        CoffeeGL.Math.screenNodeHitTest(px, py, this.camera, this.video_node, this.intersect_prev_optical);
+        CoffeeGL.Math.screenNodeHitTest(cx, cy, this.camera, this.video_node, this.intersect_optical);
+        this.morphPlane(this.intersect_optical, this.intersect_prev_optical);
+        cur_now.x = now[0] / this.webcam_element.videoWidth * CoffeeGL.Context.width;
+        cur_now.y = now[1] / this.webcam_element.videoHeight * CoffeeGL.Context.height;
+        prev_now.x = prev[0] / this.webcam_element.videoWidth * CoffeeGL.Context.width;
+        prev_now.y = prev[1] / this.webcam_element.videoHeight * CoffeeGL.Context.height;
+        dd = cur_now.dist(prev_now);
+        if (dd > max_diff) {
+          max_diff = dd;
+          max_now.copyFrom(cur_now);
+        }
       }
-      return _results;
+      if (max_diff > 6.5) {
+        this.interact(max_now.x, max_now.y);
+      }
+      if (this.webcam_params.fade_current_time >= this.webcam_params.fade_time) {
+        if (this.webcam_params.fade_current_duration === 0) {
+          if (this.webcam_params.fader >= 0.5) {
+            this.webcam_params.fade_target = 0.0;
+          } else {
+            this.webcam_params.fade_target = 1.0;
+          }
+          this.webcam_params.tween = new CoffeeGL.Interpolation(this.webcam_params.fader, this.webcam_params.fade_target);
+        }
+        this.webcam_params.fade_current_duration += dt / 1000;
+        this.webcam_params.fader = this.webcam_params.tween.set(this.webcam_params.fade_current_duration / this.webcam_params.fade_duration);
+        if (this.webcam_params.fade_current_duration >= this.webcam_params.fade_duration) {
+          this.webcam_params.fade_current_time = 0;
+          this.webcam_params.fade_dist = 0;
+          return this.webcam_params.fade_current_duration = 0;
+        }
+      } else {
+        return this.webcam_params.fade_current_time += dt / 1000;
+      }
     };
 
     Kaliedoscope.prototype.update = function(dt) {
@@ -540,9 +611,9 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         if (this.ready_fade_in > 1.0) {
           this.ready_fade_in = 1.0;
         }
-        return this.updateActual();
+        return this.updateActual(dt);
       } else {
-        this.updateLoading();
+        this.updateLoading(dt);
         this.loading_timeout += dt / 1000;
         if (this.state_loaded && this.loading_timeout > this.loading_time_limit) {
           this.state_ready = true;
@@ -556,6 +627,8 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       GL.clearColor(0.15, 0.15, 0.15, 1.0);
       GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
       this.shader.bind();
+      this.shader.setUniform1i("uSamplerWebcam", 1);
+      this.shader.setUniform1f("uWebcamFader", this.webcam_params.fader);
       this.video_node.draw();
       this.shader_face.bind();
       this.face_node.draw();
@@ -660,8 +733,6 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       }
     };
 
-    Kaliedoscope.prototype.keyPress = function(event) {};
-
     Kaliedoscope.prototype.shutdown = function() {
       var sound_short_triggers, video;
       sound_short_triggers = [];
@@ -673,7 +744,9 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       delete this.video_node;
       delete this.face_node;
       this.t.washup();
-      return delete this.t;
+      delete this.t;
+      this.wt.washup();
+      return delete this.wt;
     };
 
     return Kaliedoscope;
@@ -698,7 +771,42 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
   canvas.height = window.innerHeight;
 
-  kk = new Kaliedoscope();
+  QueryString = function() {
+    var arr, i, pair, query, query_string, vars, _i, _ref;
+    query_string = {};
+    query = window.location.search.substring(1);
+    vars = query.split("&");
+    for (i = _i = 0, _ref = vars.length - 1; 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
+      pair = vars[i].split("=");
+      if (typeof query_string[pair[0]] === "undefined") {
+        query_string[pair[0]] = pair[1];
+      } else if (typeof query_string[pair[0]] === "string") {
+        arr = [query_string[pair[0]], pair[1]];
+        query_string[pair[0]] = arr;
+      } else {
+        query_string[pair[0]].push(pair[1]);
+      }
+    }
+    return query_string;
+  };
+
+  url_vars = QueryString();
+
+  console.log(url_vars);
+
+  gridx = 15;
+
+  gridy = 7;
+
+  if (url_vars.gridx != null) {
+    gridx = +url_vars.gridx;
+  }
+
+  if (url_vars.gridy != null) {
+    gridy = +url_vars.gridy;
+  }
+
+  kk = new Kaliedoscope(gridx, gridy);
 
   params = {
     canvas: 'webgl-canvas',
@@ -718,14 +826,18 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     if (event.keyCode === 119) {
       dm = document.getElementById('webcam-canvas');
       if (dm.style.display === "block") {
-        return dm.style.display = "none";
+        dm.style.display = "none";
       } else {
-        return dm.style.display = "block";
+        dm.style.display = "block";
       }
+      dat.GUI.toggleHide();
+    }
+    if (event.keyCode === 102) {
+      return kk.webcam_params.fade_current_time = kk.webcam_params.fade_time;
     }
   };
 
-  canvas.addEventListener("keypress", keypressed);
+  window.addEventListener("keypress", keypressed);
 
   if (typeof window !== "undefined" && window !== null) {
     window.addEventListener('resize', kk.resize, false);

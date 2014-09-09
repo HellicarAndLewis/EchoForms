@@ -35,11 +35,13 @@ precision highp float;
 {{ShaderLibrary.Noise}}
 
 uniform sampler2D uSampler;
+uniform sampler2D uSamplerWebcam;
 
 uniform vec3 uMousePos;
 uniform float uClockTick;
 uniform float uHighLight;
 uniform float uMasterAlpha;
+uniform float uWebcamFader;
 
 varying vec3 vBarycentre;
 
@@ -64,10 +66,13 @@ float distFactor() {
 }
   
 void main(void) {
+
   vec3 tt = texture2D(uSampler, vTexCoord).rgb;
+  vec3 tw = texture2D(uSamplerWebcam, vTexCoord).rgb;
+  vec3 tf = mix(tt, tw, uWebcamFader);
 
   vec3 tc = mix(vec3(0.0), vec3(1.0), distFactor() * uHighLight);
 
-  gl_FragColor.rgb = mix(tc, tt, edgeFactor());
+  gl_FragColor.rgb = mix(tc, tf, edgeFactor());
   gl_FragColor.a = uMasterAlpha;
 }

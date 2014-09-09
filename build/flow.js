@@ -26,10 +26,10 @@ Coding - Benjamin Blundell @ section9.co.uk
       this.curr_xy = new Float32Array(this.max_points * 2);
       this.base_xy = new Float32Array(this.max_points * 2);
       this.options = {};
-      this.options['win_size'] = 7;
-      this.options['max_iterations'] = 4;
-      this.options['epsilon'] = 0.01;
-      this.options['min_eigen'] = 0.01;
+      this.options['win_size'] = 11;
+      this.options['max_iterations'] = 7;
+      this.options['epsilon'] = 0.015;
+      this.options['min_eigen'] = 0.005;
       this.dom_canvas.width = this.dom_webcam.videoWidth;
       this.dom_canvas.height = this.dom_webcam.videoHeight;
       this.ctx = this.dom_canvas.getContext('2d');

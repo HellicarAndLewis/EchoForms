@@ -22,10 +22,10 @@ class OpticalFlow
     @base_xy = new Float32Array(@max_points*2)
 
     @options = {}
-    @options['win_size'] = 7
-    @options['max_iterations'] = 4
-    @options['epsilon'] = 0.01
-    @options['min_eigen'] = 0.01
+    @options['win_size'] = 11
+    @options['max_iterations'] = 7
+    @options['epsilon'] = 0.015
+    @options['min_eigen'] = 0.005
 
     @dom_canvas.width = @dom_webcam.videoWidth
     @dom_canvas.height = @dom_webcam.videoHeight
@@ -64,12 +64,8 @@ class OpticalFlow
     @ctx.fill()
             
   set_and_draw : () ->
-
-
-    for i in [0..@max_points-1]
-   
+    for i in [0..@max_points-1]   
       idx = i<<1
-
       if @point_status[i] == 0
 
         @curr_xy[idx] = @base_xy[idx]
@@ -84,12 +80,10 @@ class OpticalFlow
     active = []
 
     for i in [0..@max_points-1]
-
       idx = i<<1
       if @point_status[i] == 1
         active.push [[@curr_xy[idx], @curr_xy[idx+1]], [@prev_xy[idx], @prev_xy[idx+1]]]
 
-    
     active
 
   update : (dt) ->

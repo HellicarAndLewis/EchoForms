@@ -11,6 +11,10 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
 
 class Kaliedoscope  
+
+
+  constructor : (@plane_xres, @plane_yres ) ->
+    @
   
   # Playing audio when a triangle is selected if it has a trigger
 
@@ -280,8 +284,8 @@ class Kaliedoscope
   
     # Plane
     #if not @plane
-    @plane_yres = 7
-    @plane_xres = 15
+    #@plane_yres = 7
+    #@plane_xres = 15
     @setupPlane()
     @video_node = new CoffeeGL.Node @plane
     @face_node = new CoffeeGL.Node @plane_face
@@ -291,6 +295,7 @@ class Kaliedoscope
     @face_node.brew {position_buffer_access : GL.DYNAMIC_DRAW, colour_buffer_access: GL.DYNAMIC_DRAW} 
 
     @geomTrans CoffeeGL.Context.width, CoffeeGL.Context.height
+
 
 
     # Webcam Test Quad
@@ -325,13 +330,13 @@ class Kaliedoscope
     # Warp parameters
     @warp =
       exponent  : 2
-      force    : 0.004 + (Math.random() * 0.001) 
-      range     : 2.0 + (Math.random() * 0.5) 
+      force    : 0.0012 + (Math.random() * 0.001) 
+      range     : 1.0 + (Math.random() * 0.5) 
       falloff_factor : 1.0
-      springiness : 0.0019 + (Math.random() * 0.01) 
+      springiness : 0.065 + (Math.random() * 0.01) 
       springiness_exponent : 2.0
       rot_speed : 4.0
-      spring_damping : 0.26 + (Math.random() * 0.5) 
+      spring_damping : 0.77 + (Math.random() * 0.15) 
       natural_rate : 0.9
       natural_force : 0.002 
 
@@ -340,6 +345,15 @@ class Kaliedoscope
       speed_in : 0.1 + (-0.01 + Math.random() * 0.02) 
       speed_out : 0.009 + (Math.random() * 0.01) 
       alpha_scalar : 0.24 + (Math.random() * 0.01) 
+
+    # Webcam Parameters
+    @webcam_params =
+      fader : 0.0
+      fade_duration : 3.0 # seconds
+      fade_current_duration : 0 # seconds
+      fade_target : 0
+      fade_time : 60.0 # seconds
+      fade_current_time : 0
 
     # Sound parameters
     @sound_long_playing = false
@@ -382,31 +396,71 @@ class Kaliedoscope
       @video_element.play()
       @video_node.add @t
 
+
     if not @state_loaded
       loadAssets @
 
+    # Youtube Easter Egg Stuff
+
+    @youtube_id = ""
+    @youtube_ready = false
+
     # GUI Setup
 
-    ###
-    datg = new dat.GUI()
-    datg.remember(@)
+    @datg = new dat.GUI()
+    @datg.remember(@)
 
-    datg.add(@warp,'exponent',1.0,5.0)
-    datg.add(@warp,'force',0.0001,0.01)
-    datg.add(@warp,'range',0.1,5.0)
-    datg.add(@warp,'springiness', 0.0001, 0.01)
-    datg.add(@warp,'spring_damping', 0.1, 1.0)
-    datg.add(@warp,'rot_speed', 0.01, 10.0)
-    datg.add(@warp,'natural_rate', 0.1, 1.0)
-    datg.add(@warp,'natural_force', 0.0001, 0.01)
-    datg.add(@,'sound_on')
-    datg.add(@highLight,'speed_in', 0.001, 0.1)
-    datg.add(@highLight,'speed_out', 0.001, 0.1)
-    datg.add(@highLight, 'alpha_scalar',0.1,1.0)
+    @datg.add(@warp,'exponent',1.0,5.0)
+    @datg.add(@warp,'force',0.0001,0.01)
+    @datg.add(@warp,'range',0.1,5.0)
+    @datg.add(@warp,'springiness', 0.0001, 0.1).step(0.0001)
+    @datg.add(@warp,'spring_damping', 0.1, 1.0).step(0.001)
+    @datg.add(@warp,'rot_speed', 0.01, 10.0)
+    @datg.add(@warp,'natural_rate', 0.1, 1.0)
+    @datg.add(@warp,'natural_force', 0.0001, 0.01)
+    @datg.add(@,'sound_on')
+    @datg.add(@highLight,'speed_in', 0.001, 0.1)
+    @datg.add(@highLight,'speed_out', 0.001, 0.1)
+    @datg.add(@highLight, 'alpha_scalar',0.1,1.0)
+    @datg.add(@webcam_params, 'fader', 0.0, 1.0).step(0.01)
+    @datg.add(@webcam_params, 'fade_time', 0, 600).step(1)
+    @datg.add(@webcam_params, 'fade_duration', 0, 10).step(0.1)
 
-    datg.add(@dof_params,'focal_range', 0.001, 1.0)
-    datg.add(@dof_params, 'focal_distance',0.1,10.0)
-    ###
+    # More Youtube related stuff
+    @youtube_element = document.getElementById "video_youtube"
+
+    yevent = @datg.add(@, 'youtube_id')
+    yevent.onFinishChange (value) =>
+
+
+      # Perform a get request and get me some data!
+      @video_ready = false
+      ry = new CoffeeGL.Request('/youtube?id=' + @youtube_id)
+      ry.get (data) =>
+
+        if data == "error"
+          return
+
+        # We have new video here so we must re-address our texture
+        @video_element.pause()
+        @youtube_element.src = data
+
+        @youtube_element.addEventListener "ended", () ->
+          @youtube_element.currentTime = 0
+          @youtube_element.play()
+        ,false
+
+        @youtube_element.oncanplay = (event) =>
+          # Resize the texture
+
+          @t = new CoffeeGL.TextureBase({ width: @youtube_element.videoWidth, height:  @youtube_element.videoHeight })
+          @youtube_element.play()
+          @t.update @youtube_element
+          @youtube_ready = true
+
+        
+    # Off by default
+    dat.GUI.toggleHide();
 
     # Setup mouse listener
     CoffeeGL.Context.mouseMove.add @mouseMoved, @
@@ -418,11 +472,7 @@ class Kaliedoscope
     # Setup touch listener
     #CoffeeGL.Context.touchSwipe.add @touchSwipe, @
 
-    # Setup keyboard listener
-    CoffeeGL.Context.keyPress.add @keyPress, @
-
-
-
+  
     # Mouse states
     @mouse_over = false
     @mouse_pressed = false
@@ -492,7 +542,13 @@ class Kaliedoscope
 
   updateActual : (dt) ->
 
-    @t.update @video_element if @video_ready
+    # Shader and video updates
+
+    if @video_ready
+      @t.update @video_element 
+    else if @youtube_ready
+      @t.update @youtube_element 
+
     @wt.update @webcam_element if @webcam_ready
 
     if @shader?
@@ -507,6 +563,8 @@ class Kaliedoscope
 
     @naturalForce()
     
+    # Work with mouse interactions
+
     if @mouse_pressed
       @morphPlane(@intersect, @intersect_prev)
     
@@ -525,21 +583,78 @@ class Kaliedoscope
     # Now look at these points that are moving and perform some interaction
     active_flow = @optical_flow.active_intersections()
 
+    max_diff = 0
+    max_now = new CoffeeGL.Vec2 0,0
+    cur_now = new CoffeeGL.Vec2 0,0
+    prev_now = new CoffeeGL.Vec2 0,0
+
+
     for i in active_flow
       now = i[0]
       prev = i[1]
 
-      @intersect_prev_optical.x = prev[0] / @webcam_element.videoWidth * 2 - 1
-      @intersect_prev_optical.y = prev[1] / @webcam_element.videoHeight * 2 - 1
-      @intersect_prev_optical.z = 0.001
-      @intersect_optical.x = now[0] / @webcam_element.videoWidth * 2 - 1
-      @intersect_optical.y = now[1] / @webcam_element.videoHeight * 2 - 1
-      @intersect_optical.z = 0.001
-      #console.log @intersect_optical
+      # Flip so its properly mirrored left right
+      now[0] = @webcam_element.videoWidth - now[0]
+      prev[0] = @webcam_element.videoWidth - prev[0]
+
+      px = prev[0] / @webcam_element.videoWidth * CoffeeGL.Context.width
+      py = prev[1] / @webcam_element.videoHeight * CoffeeGL.Context.height
+
+      cx = now[0] / @webcam_element.videoWidth * CoffeeGL.Context.width
+      cy = now[1]/ @webcam_element.videoHeight * CoffeeGL.Context.height
+
+      CoffeeGL.Math.screenNodeHitTest(px,py,@camera,@video_node,@intersect_prev_optical)
+      CoffeeGL.Math.screenNodeHitTest(cx,cy,@camera,@video_node,@intersect_optical)
 
       @morphPlane(@intersect_optical, @intersect_prev_optical)
 
-      #console.log @intersect_optical
+      # Keep a record of the biggest different and use that as our triangle hightlight
+      cur_now.x = now[0] / @webcam_element.videoWidth * CoffeeGL.Context.width
+      cur_now.y = now[1] / @webcam_element.videoHeight * CoffeeGL.Context.height
+
+      prev_now.x = prev[0] / @webcam_element.videoWidth * CoffeeGL.Context.width
+      prev_now.y = prev[1] / @webcam_element.videoHeight * CoffeeGL.Context.height
+
+      dd = cur_now.dist prev_now
+      if  dd > max_diff
+        max_diff = dd
+        max_now.copyFrom cur_now
+    
+    if max_diff > 6.5 # This stops small movements repeatedly doing bad things
+      @interact max_now.x, max_now.y      
+
+    # Finally - work with the fader - Over time move it
+
+    if @webcam_params.fade_current_time >= @webcam_params.fade_time
+      
+      if @webcam_params.fade_current_duration == 0
+        if @webcam_params.fader >= 0.5
+          @webcam_params.fade_target = 0.0
+        else
+          @webcam_params.fade_target = 1.0
+  
+        @webcam_params.tween = new CoffeeGL.Interpolation @webcam_params.fader,  @webcam_params.fade_target
+
+      @webcam_params.fade_current_duration += (dt / 1000)
+    
+      @webcam_params.fader = @webcam_params.tween.set(@webcam_params.fade_current_duration / @webcam_params.fade_duration)
+      
+      # Checks on the fader
+      #@webcam_params.fader = 1.0 if @webcam_params.fader > 1.0 
+      #@webcam_params.fader = 0.0 if @webcam_params.fader < 1.0 
+
+      if @webcam_params.fade_current_duration >= @webcam_params.fade_duration
+        # we should be done
+
+        @webcam_params.fade_current_time = 0
+        @webcam_params.fade_dist = 0
+        @webcam_params.fade_current_duration = 0
+
+
+
+    else
+      @webcam_params.fade_current_time += (dt / 1000)
+
 
   update : (dt) -> 
 
@@ -548,9 +663,9 @@ class Kaliedoscope
       if @ready_fade_in > 1.0
         @ready_fade_in = 1.0
 
-      @updateActual()
+      @updateActual(dt)
     else
-      @updateLoading()
+      @updateLoading(dt)
       @loading_timeout += dt/1000
       if @state_loaded and @loading_timeout > @loading_time_limit
         @state_ready = true
@@ -566,6 +681,8 @@ class Kaliedoscope
     GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT)
 
     @shader.bind()
+    @shader.setUniform1i "uSamplerWebcam", 1
+    @shader.setUniform1f "uWebcamFader", @webcam_params.fader
     @video_node.draw()
     @shader_face.bind()
     @face_node.draw()
@@ -671,11 +788,7 @@ class Kaliedoscope
       @sounds_long[0].fadeOut(1.0)
       @sounds_long[0].playing = false
 
-  keyPress : (event) ->
-    #console.log event
-    # w key - toggle webcam draw
-    #if event.keyCode == 119
-    #  @webcam_node_draw = !@webcam_node_draw
+
 
   # Called when we shutdown rendering
   shutdown : () ->
@@ -699,6 +812,9 @@ class Kaliedoscope
     @t.washup()
     delete @t
 
+    @wt.washup()
+    delete @wt
+
 
 # resize the credits div
 credits_resize = () ->
@@ -712,12 +828,46 @@ window.notSupported = () ->
   $('#credits').append('<h3>Your browser does not support WebGL</h3><p>Visit <a href="http://get.webgl.org">get.webgl.org</a> to learn more.</p>')
 
 
-# Initial Size of the Canvas, pre WebGL
+# Initial Size of the Canvas, pre Web
 canvas = document.getElementById 'webgl-canvas'
 canvas.width = window.innerWidth
 canvas.height = window.innerHeight
 
-kk = new Kaliedoscope()
+# Function to read URL parameters
+QueryString = () -> 
+
+  query_string = {}
+  query = window.location.search.substring(1)
+  vars = query.split("&")
+  
+  for i in [0..vars.length-1]
+    pair = vars[i].split("=")
+    
+    if typeof query_string[pair[0]] == "undefined"
+      query_string[pair[0]] = pair[1]
+
+    else if typeof query_string[pair[0]] == "string"
+      arr = [ query_string[pair[0]], pair[1] ]
+      query_string[pair[0]] = arr
+    
+    else
+      query_string[pair[0]].push(pair[1])
+  
+  return query_string
+
+
+url_vars = QueryString()
+
+console.log url_vars
+
+gridx = 15
+gridy = 7
+
+# Read the query string and set the grid accordingly
+gridx = +url_vars.gridx if url_vars.gridx?
+gridy = +url_vars.gridy if url_vars.gridy?
+
+kk = new Kaliedoscope(gridx, gridy)
 
 params = 
   canvas : 'webgl-canvas'
@@ -741,9 +891,20 @@ keypressed = (event) ->
     else
       dm.style.display = "block"
 
+    dat.GUI.toggleHide();
+
+  # If f is pressed, call the swap for the fader now
+  if event.keyCode == 102
+    kk.webcam_params.fade_current_time = kk.webcam_params.fade_time
+
+
+
+
+
 
 # Add callbacks
-canvas.addEventListener "keypress", keypressed
+# Add keypress to the window so we always capture
+window.addEventListener "keypress", keypressed 
 window.addEventListener('resize', kk.resize, false) if window?
 window.addEventListener('resize', credits_resize, false) if window?
 credits_resize()

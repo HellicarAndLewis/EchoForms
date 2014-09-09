@@ -72,11 +72,18 @@
     display: none;
   }
 
+  /* #video_youtube {
+    display: none;
+  }*/
+
   #video_webcam {
     display: none;
     position: absolute;
     left: 0;
     top: 0;
+    transform: rotateY(180deg);
+    -webkit-transform:rotateY(180deg);
+    -moz-transform:rotateY(180deg);
   }
 
   #webcam-canvas {
@@ -84,6 +91,9 @@
     position: absolute;
     left: 0;
     top: 0;
+    transform: rotateY(180deg);
+    -webkit-transform:rotateY(180deg);
+    -moz-transform:rotateY(180deg);
   }
 
 </style>
@@ -92,6 +102,9 @@
 </video>
 
 <video id="video_webcam">
+</video>
+
+<video id="video_youtube" loop="loop" preload="auto" crossorigin="anonymous">
 </video>
 
 <canvas id="webcam-canvas" tabindex="1"></canvas>

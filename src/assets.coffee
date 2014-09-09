@@ -6,7 +6,7 @@ Coding - Benjamin Blundell obj. section9.co.uk
 ###
 
 # Maybe this should be a class but I've split this out as its logically a little
-# different to the Kaleidoscope itself - its a decorator really
+# different to the Kaleidoscope itself - its a MASSIVE decorator really
 
 {OpticalFlow} = require './flow'
 
@@ -87,18 +87,22 @@ loadAssets = (obj) ->
       if not obj.webcam_ready
 
         # Create the texture that matches the webcam size
-        obj.wt = new CoffeeGL.TextureBase({ width: obj.webcam_element.videoWidth, height: obj.webcam_element.videoHeight })
+        obj.wt = new CoffeeGL.TextureBase({ width: obj.webcam_element.videoWidth, height: obj.webcam_element.videoHeight, unit: 1 })
         obj.webcam_node.add obj.wt
         obj.webcam_element.play()
         obj.webcam_ready = true
 
+        # Add the new texture to the video node so we can fade
+        obj.video_node.add obj.wt
+
         # Turns out jsfeat needs the window object which sucks! ><
-
-        #obj.flow_worker = new Worker '/js/flow.js'
-        #obj.flow_worker.onmessage = obj.onFlowEvent
-        #obj.flow_worker.postMessage { cmd: "startup", data : obj.webcam_element }
-
         obj.optical_flow = new OpticalFlow(obj.webcam_element, obj.webcam_canvas, obj.plane_xres, obj.plane_yres)
+
+        # Additional options for dat.gui
+        obj.datg.add(obj.optical_flow.options, 'win_size',7,30).step(1)
+        obj.datg.add(obj.optical_flow.options, 'max_iterations',3,30).step(1)
+        obj.datg.add(obj.optical_flow.options, 'epsilon',0.001,0.1).step(0.0025)
+        obj.datg.add(obj.optical_flow.options, 'min_eigen',0.001,0.01).step(0.0001)
 
         @loaded()
         console.log "Webcam Loaded", obj.webcam_element.videoWidth, obj.webcam_element.videoHeight
