@@ -10,16 +10,18 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
 
 (function() {
-  var Kaliedoscope, QueryString, canvas, credits_resize, gridx, gridy, kaliedoscopeWebGL, keypressed, kk, loadAssets, params, url_vars,
+  var Kaliedoscope, QueryString, canvas, credits_resize, flowx, flowy, gridx, gridy, kaliedoscopeWebGL, keypressed, kk, loadAssets, params, url_vars,
     __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
   loadAssets = require('./assets').loadAssets;
 
   Kaliedoscope = (function() {
-    function Kaliedoscope(plane_xres, plane_yres) {
+    function Kaliedoscope(plane_xres, plane_yres, flow_xres, flow_yres) {
       this.plane_xres = plane_xres;
       this.plane_yres = plane_yres;
+      this.flow_xres = flow_xres;
+      this.flow_yres = flow_yres;
       this.resize = __bind(this.resize, this);
       this;
     }
@@ -795,9 +797,9 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
   console.log(url_vars);
 
-  gridx = 15;
+  gridx = flowx = 15;
 
-  gridy = 7;
+  gridy = flowy = 7;
 
   if (url_vars.gridx != null) {
     gridx = +url_vars.gridx;
@@ -807,7 +809,19 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     gridy = +url_vars.gridy;
   }
 
-  kk = new Kaliedoscope(gridx, gridy);
+  flowx = gridx;
+
+  flowy = gridy;
+
+  if (url_vars.flowx != null) {
+    flowx = +url_vars.flowx;
+  }
+
+  if (url_vars.flowy != null) {
+    flowy = +url_vars.flowy;
+  }
+
+  kk = new Kaliedoscope(gridx, gridy, flowx, flowy);
 
   params = {
     canvas: 'webgl-canvas',
@@ -933,7 +947,7 @@ Coding - Benjamin Blundell obj. section9.co.uk
           obj.webcam_element.play();
           obj.webcam_ready = true;
           obj.video_node.add(obj.wt);
-          obj.optical_flow = new OpticalFlow(obj.webcam_element, obj.webcam_canvas, obj.plane_xres, obj.plane_yres);
+          obj.optical_flow = new OpticalFlow(obj.webcam_element, obj.webcam_canvas, obj.flow_xres, obj.flow_yres);
           obj.datg.add(obj.optical_flow.options, 'win_size', 7, 30).step(1);
           obj.datg.add(obj.optical_flow.options, 'max_iterations', 3, 30).step(1);
           obj.datg.add(obj.optical_flow.options, 'epsilon', 0.001, 0.1).step(0.0025);

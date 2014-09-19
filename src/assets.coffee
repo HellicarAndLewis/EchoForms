@@ -96,7 +96,7 @@ loadAssets = (obj) ->
         obj.video_node.add obj.wt
 
         # Turns out jsfeat needs the window object which sucks! ><
-        obj.optical_flow = new OpticalFlow(obj.webcam_element, obj.webcam_canvas, obj.plane_xres, obj.plane_yres)
+        obj.optical_flow = new OpticalFlow(obj.webcam_element, obj.webcam_canvas, obj.flow_xres, obj.flow_yres)
 
         # Additional options for dat.gui
         obj.datg.add(obj.optical_flow.options, 'win_size',7,30).step(1)

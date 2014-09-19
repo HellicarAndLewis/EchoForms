@@ -13,7 +13,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 class Kaliedoscope  
 
 
-  constructor : (@plane_xres, @plane_yres ) ->
+  constructor : (@plane_xres, @plane_yres, @flow_xres, @flow_yres) ->
     @
   
   # Playing audio when a triangle is selected if it has a trigger
@@ -860,14 +860,20 @@ url_vars = QueryString()
 
 console.log url_vars
 
-gridx = 15
-gridy = 7
+gridx = flowx = 15
+gridy = flowy = 7
 
 # Read the query string and set the grid accordingly
 gridx = +url_vars.gridx if url_vars.gridx?
 gridy = +url_vars.gridy if url_vars.gridy?
 
-kk = new Kaliedoscope(gridx, gridy)
+# Read the query string and set the number of flow points accordingly
+flowx = gridx
+flowy = gridy
+flowx = +url_vars.flowx if url_vars.flowx? 
+flowy = +url_vars.flowy if url_vars.flowy?
+
+kk = new Kaliedoscope(gridx, gridy, flowx, flowy)
 
 params = 
   canvas : 'webgl-canvas'
