@@ -369,7 +369,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       if (!this.state_loaded) {
         loadAssets(this);
       }
-      this.youtube_id = "";
+      this.youtube_url = "";
       this.youtube_ready = false;
       this.datg = new dat.GUI();
       this.datg.remember(this);
@@ -389,31 +389,34 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       this.datg.add(this.webcam_params, 'fade_time', 0, 600).step(1);
       this.datg.add(this.webcam_params, 'fade_duration', 0, 10).step(0.1);
       this.youtube_element = document.getElementById("video_youtube");
-      yevent = this.datg.add(this, 'youtube_id');
+      yevent = this.datg.add(this, 'youtube_url');
       yevent.onFinishChange(function(value) {
-        var ry;
+        var youtube_id;
         _this.video_ready = false;
-        ry = new CoffeeGL.Request('/youtube?id=' + _this.youtube_id);
-        return ry.get(function(data) {
-          if (data === "error") {
-            return;
-          }
-          _this.video_element.pause();
-          _this.youtube_element.src = data;
-          _this.youtube_element.addEventListener("ended", function() {
-            this.youtube_element.currentTime = 0;
-            return this.youtube_element.play();
-          }, false);
-          return _this.youtube_element.oncanplay = function(event) {
-            _this.t = new CoffeeGL.TextureBase({
-              width: _this.youtube_element.videoWidth,
-              height: _this.youtube_element.videoHeight
-            });
-            _this.youtube_element.play();
-            _this.t.update(_this.youtube_element);
-            return _this.youtube_ready = true;
-          };
-        });
+        _this.youtube_ready = false;
+        youtube_id = _this.youtube_url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/i);
+        if (youtube_id == null) {
+          alert("Youtube Link is incorrect.");
+          return;
+        }
+        _this.video_element.pause();
+        _this.youtube_element.src = 'https://dejima.section9.co.uk/youtube?id=' + encodeURIComponent(youtube_id[0]);
+        _this.youtube_element.addEventListener("ended", function() {
+          this.youtube_element.currentTime = 0;
+          return this.youtube_element.play();
+        }, false);
+        return _this.youtube_element.oncanplay = function(event) {
+          _this.video_node.remove(_this.t);
+          _this.t.washup();
+          _this.t = new CoffeeGL.TextureBase({
+            width: _this.youtube_element.videoWidth,
+            height: _this.youtube_element.videoHeight
+          });
+          _this.video_node.add(_this.t);
+          _this.youtube_element.play();
+          _this.t.update(_this.youtube_element);
+          return _this.youtube_ready = true;
+        };
       });
       dat.GUI.toggleHide();
       CoffeeGL.Context.mouseMove.add(this.mouseMoved, this);

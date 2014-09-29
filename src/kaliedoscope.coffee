@@ -402,7 +402,7 @@ class Kaliedoscope
 
     # Youtube Easter Egg Stuff
 
-    @youtube_id = ""
+    @youtube_url = ""
     @youtube_ready = false
 
     # GUI Setup
@@ -429,34 +429,48 @@ class Kaliedoscope
     # More Youtube related stuff
     @youtube_element = document.getElementById "video_youtube"
 
-    yevent = @datg.add(@, 'youtube_id')
+    yevent = @datg.add(@, 'youtube_url')
     yevent.onFinishChange (value) =>
 
 
       # Perform a get request and get me some data!
       @video_ready = false
-      ry = new CoffeeGL.Request('/youtube?id=' + @youtube_id)
-      ry.get (data) =>
+      @youtube_ready = false
 
-        if data == "error"
-          return
+      youtube_id = @youtube_url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/i)
 
-        # We have new video here so we must re-address our texture
-        @video_element.pause()
-        @youtube_element.src = data
+      if not youtube_id?
+        alert "Youtube Link is incorrect."
+        return
 
-        @youtube_element.addEventListener "ended", () ->
-          @youtube_element.currentTime = 0
-          @youtube_element.play()
-        ,false
+      #ry = new CoffeeGL.Request('https://dejima.section9.co.uk/youtube?id=' + encodeURIComponent(youtube_id[0]))
+      #ry.get (data) =>
 
-        @youtube_element.oncanplay = (event) =>
-          # Resize the texture
+      #  if data == "error"
+      #    alert "Error loading YouTube Video"
+      #    return
 
-          @t = new CoffeeGL.TextureBase({ width: @youtube_element.videoWidth, height:  @youtube_element.videoHeight })
-          @youtube_element.play()
-          @t.update @youtube_element
-          @youtube_ready = true
+      # We have new video here so we must re-address our texture
+      @video_element.pause()
+      @youtube_element.src = 'https://dejima.section9.co.uk/youtube?id=' + encodeURIComponent(youtube_id[0])
+
+      @youtube_element.addEventListener "ended", () ->
+        @youtube_element.currentTime = 0
+        @youtube_element.play()
+      ,false
+
+      @youtube_element.oncanplay = (event) =>
+        # Resize the texture
+        
+        @video_node.remove @t
+        @t.washup()
+        
+
+        @t = new CoffeeGL.TextureBase({ width: @youtube_element.videoWidth, height:  @youtube_element.videoHeight })
+        @video_node.add @t
+        @youtube_element.play()
+        @t.update @youtube_element
+        @youtube_ready = true
 
         
     # Off by default
