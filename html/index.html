@@ -68,7 +68,7 @@
 <header></header>
 
 <style>
-  #video_lexus {
+  #video_default {
     display: none;
   }
 
@@ -86,7 +86,7 @@
     -moz-transform:rotateY(180deg);
   }
 
-  #webcam-canvas {
+  #webcam_canvas {
     display: none;
     position: absolute;
     left: 0;
@@ -96,9 +96,13 @@
     -moz-transform:rotateY(180deg);
   }
 
+  #youtube-textbox{
+    color: black;
+  }
+
 </style>
 
-<video id="video_lexus" loop="loop">
+<video id="video_default" loop="loop">
 </video>
 
 <video id="video_webcam">
@@ -107,10 +111,20 @@
 <video id="video_youtube" loop="loop" preload="auto" crossorigin="anonymous">
 </video>
 
-<canvas id="webcam-canvas" tabindex="1"></canvas>
+<canvas id="webcam_canvas" tabindex="1"></canvas>
 
 <div id="credits">
 <p><h3>"Echo Forms: an audiovisual Kaleidoscope"</h3></p>
+
+
+  <form class="form-horizontal" class="modal-form">
+    <div class="modal-body">
+      <h4 id="myModalLabel">Paste Youtube Link Here</h4>
+       <input type="text" id="youtube-textbox" placeholder="youtube url" /><br/><br/>
+       <button type="button" id="submit-button" class="btn btn-primary" data-loading-text="Fetching...">Fetch from YouTube</button>
+    </div>                   
+  </form>
+
 
 <p>
 Directed by Hellicar&Lewis<br/>

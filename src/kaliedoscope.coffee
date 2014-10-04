@@ -14,6 +14,14 @@ class Kaliedoscope
 
 
   constructor : (@plane_xres, @plane_yres, @flow_xres, @flow_yres) ->
+    @state =
+      startup : true
+      loaded : false
+      webcam : false
+      video : false
+      youtube : false
+      youtube_fetch : false
+
     @
   
   # Playing audio when a triangle is selected if it has a trigger
@@ -255,20 +263,12 @@ class Kaliedoscope
 
  
   init : () ->
-
-    # State
-    if not @state_ready?
-      @state_ready = false
     
-    # Check to see if we've already loaded things
-    if not @state_loaded?
-      @state_loaded = false
-    
-      @loading_items = []
-      @loading_timeout = 0
-      @ready_fade_in = 0
-      @loading_time_limit = 3
-      @ready_fade_time = 3
+    @loading_items = []
+    @loading_timeout = 0
+    @ready_fade_in = 0
+    @loading_time_limit = 3
+    @ready_fade_time = 3
 
     # Noise
     @noise = new CoffeeGL.Noise.Noise()
@@ -357,10 +357,10 @@ class Kaliedoscope
 
     # Sound parameters
     @sound_long_playing = false
-    @sound_on = true
+    @sound_on = false
     @sound_short_triggers = []
 
-    if not @state_loaded
+    if not @state["loaded"]
       @sounds_long = []
       @sounds_short = []
 
@@ -397,14 +397,12 @@ class Kaliedoscope
       @video_node.add @t
 
 
-    if not @state_loaded
+    if not @state["loaded"]
       loadAssets @
 
     # Youtube Easter Egg Stuff
 
-    @youtube_url = ""
-    @youtube_ready = false
-
+  
     # GUI Setup
 
     @datg = new dat.GUI()
@@ -429,50 +427,9 @@ class Kaliedoscope
     # More Youtube related stuff
     @youtube_element = document.getElementById "video_youtube"
 
-    yevent = @datg.add(@, 'youtube_url')
-    yevent.onFinishChange (value) =>
+    #yevent = @datg.add(@, 'youtube_url')
+    #yevent.onFinishChange @submitYouTube()
 
-
-      # Perform a get request and get me some data!
-      @video_ready = false
-      @youtube_ready = false
-
-      youtube_id = @youtube_url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/i)
-
-      if not youtube_id?
-        alert "Youtube Link is incorrect."
-        return
-
-      #ry = new CoffeeGL.Request('https://dejima.section9.co.uk/youtube?id=' + encodeURIComponent(youtube_id[0]))
-      #ry.get (data) =>
-
-      #  if data == "error"
-      #    alert "Error loading YouTube Video"
-      #    return
-
-      # We have new video here so we must re-address our texture
-      @video_element.pause()
-      @youtube_element.src = 'https://dejima.section9.co.uk/youtube?id=' + encodeURIComponent(youtube_id[0])
-
-      @youtube_element.addEventListener "ended", () ->
-        @youtube_element.currentTime = 0
-        @youtube_element.play()
-      ,false
-
-      @youtube_element.oncanplay = (event) =>
-        # Resize the texture
-        
-        @video_node.remove @t
-        @t.washup()
-        
-
-        @t = new CoffeeGL.TextureBase({ width: @youtube_element.videoWidth, height:  @youtube_element.videoHeight })
-        @video_node.add @t
-        @youtube_element.play()
-        @t.update @youtube_element
-        @youtube_ready = true
-
-        
     # Off by default
     dat.GUI.toggleHide();
 
@@ -490,6 +447,55 @@ class Kaliedoscope
     # Mouse states
     @mouse_over = false
     @mouse_pressed = false
+
+
+  submitYouTube : (url) ->
+
+    if @state["youtube_fetch"]
+      return
+
+    @state["youtube_fetch"] = true
+
+    # Perform a get request and get me some data!    
+    @state["youtube"] = false
+
+    youtube_id = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/i)
+
+    if not youtube_id?
+      alert "Youtube Link is incorrect."
+      @state["youtube_fetch"] = false
+      textbox = document.getElementById "youtube-textbox"
+      $('#submit-button').button('reset')
+
+      return
+
+    # We have new video here so we must re-address our texture
+    # @video_element.pause()
+    @youtube_element.src = 'https://dejima.section9.co.uk/youtube?id=' + encodeURIComponent(youtube_id[0])
+
+    @youtube_element.addEventListener "ended", () ->
+      @youtube_element.currentTime = 0
+      @youtube_element.play()
+    ,false
+
+    @youtube_element.oncanplay = (event) =>
+      # Resize the texture
+      
+      @video_node.remove @t
+      @t.washup()
+      
+      @t = new CoffeeGL.TextureBase({ width: @youtube_element.videoWidth, height:  @youtube_element.videoHeight })
+      @video_node.add @t
+      @youtube_element.play()
+      @t.update @youtube_element
+      @state["youtube"] = true
+      @state["youtube_fetch"] = false
+
+      # Remove our main panel
+      credits = document.getElementById 'credits'
+      credits.style.display = 'none'
+
+      
 
 
   # Given a face, make it lighter
@@ -554,45 +560,40 @@ class Kaliedoscope
 
     @face_node.rebrew( { position_buffer : 0, colour_buffer: 0})
 
-  updateActual : (dt) ->
 
-    # Shader and video updates
+  updateFader : (dt) ->
 
-    if @video_ready
-      @t.update @video_element 
-    else if @youtube_ready
-      @t.update @youtube_element 
+    if @webcam_params.fade_current_time >= @webcam_params.fade_time
+      
+      if @webcam_params.fade_current_duration == 0
+        if @webcam_params.fader >= 0.5
+          @webcam_params.fade_target = 0.0
+        else
+          @webcam_params.fade_target = 1.0
+  
+        @webcam_params.tween = new CoffeeGL.Interpolation @webcam_params.fader,  @webcam_params.fade_target
 
-    @wt.update @webcam_element if @webcam_ready
-
-    if @shader?
-      @shader.bind()
-      @shader.setUniform1f "uClockTick", CoffeeGL.Context.contextTime 
-      @shader.setUniform1f "uMasterAlpha", @ready_fade_in
-
-    if @shader_face?
-      @shader_face.bind()
-      @shader_face.setUniform1f "uClockTick", CoffeeGL.Context.contextTime
-      @shader_face.setUniform1f "uAlphaScalar", @highLight.alpha_scalar
-
-    @naturalForce()
+      @webcam_params.fade_current_duration += (dt / 1000)
     
-    # Work with mouse interactions
+      @webcam_params.fader = @webcam_params.tween.set(@webcam_params.fade_current_duration / @webcam_params.fade_duration)
+      
+      # Checks on the fader
+      #@webcam_params.fader = 1.0 if @webcam_params.fader > 1.0 
+      #@webcam_params.fader = 0.0 if @webcam_params.fader < 1.0 
 
-    if @mouse_pressed
-      @morphPlane(@intersect, @intersect_prev)
-    
-    @copyToFace()
+      if @webcam_params.fade_current_duration >= @webcam_params.fade_duration
+        # we should be done
 
-    @updateFaceHighlight(@selected_tris)
+        @webcam_params.fade_current_time = 0
+        @webcam_params.fade_dist = 0
+        @webcam_params.fade_current_duration = 0
 
-    @video_node.rebrew( { position_buffer : 0, texcoord_buffer : 0})
-    @face_node.rebrew( { position_buffer : 0, colour_buffer: 0})
-    @springBack()
-    @playSound() if @sound_on
 
-    # Update the jsfeat points
-    @optical_flow.update(dt)
+    else
+      @webcam_params.fade_current_time += (dt / 1000)
+
+  updateWebcam : (dt) ->
+    @optical_flow.update(dt) 
 
     # Now look at these points that are moving and perform some interaction
     active_flow = @optical_flow.active_intersections()
@@ -633,46 +634,59 @@ class Kaliedoscope
       if  dd > max_diff
         max_diff = dd
         max_now.copyFrom cur_now
-    
+
     if max_diff > 6.5 # This stops small movements repeatedly doing bad things
       @interact max_now.x, max_now.y      
 
-    # Finally - work with the fader - Over time move it
 
-    if @webcam_params.fade_current_time >= @webcam_params.fade_time
-      
-      if @webcam_params.fade_current_duration == 0
-        if @webcam_params.fader >= 0.5
-          @webcam_params.fade_target = 0.0
-        else
-          @webcam_params.fade_target = 1.0
-  
-        @webcam_params.tween = new CoffeeGL.Interpolation @webcam_params.fader,  @webcam_params.fade_target
+  updateActual : (dt) ->
 
-      @webcam_params.fade_current_duration += (dt / 1000)
+    # Shader and video updates
+
+    if @state["youtube"]
+      @t.update @youtube_element
+    else if @state["video"]
+      @t.update @video_element 
+
+    @wt.update @webcam_element if @webcam_ready
+
+    if @shader?
+      @shader.bind()
+      @shader.setUniform1f "uClockTick", CoffeeGL.Context.contextTime 
+      @shader.setUniform1f "uMasterAlpha", @ready_fade_in
+
+    if @shader_face?
+      @shader_face.bind()
+      @shader_face.setUniform1f "uClockTick", CoffeeGL.Context.contextTime
+      @shader_face.setUniform1f "uAlphaScalar", @highLight.alpha_scalar
+
+    @naturalForce()
     
-      @webcam_params.fader = @webcam_params.tween.set(@webcam_params.fade_current_duration / @webcam_params.fade_duration)
-      
-      # Checks on the fader
-      #@webcam_params.fader = 1.0 if @webcam_params.fader > 1.0 
-      #@webcam_params.fader = 0.0 if @webcam_params.fader < 1.0 
+    # Work with mouse interactions
 
-      if @webcam_params.fade_current_duration >= @webcam_params.fade_duration
-        # we should be done
+    if @mouse_pressed
+      @morphPlane(@intersect, @intersect_prev)
+    
+    @copyToFace()
 
-        @webcam_params.fade_current_time = 0
-        @webcam_params.fade_dist = 0
-        @webcam_params.fade_current_duration = 0
+    @updateFaceHighlight(@selected_tris)
 
+    @video_node.rebrew( { position_buffer : 0, texcoord_buffer : 0})
+    @face_node.rebrew( { position_buffer : 0, colour_buffer: 0})
+    @springBack()
+    
+    #@playSound() if @sound_on
 
-
-    else
-      @webcam_params.fade_current_time += (dt / 1000)
-
+    # Update the jsfeat points if we are using the webcam
+    if @state["webcam"]
+      @updateWebcam(dt)
+      @updateFader(dt)
+  
 
   update : (dt) -> 
 
-    if @state_ready
+    if @state["loaded"] and @state["video"]
+    
       @ready_fade_in += (dt / 1000) / @ready_fade_time
       if @ready_fade_in > 1.0
         @ready_fade_in = 1.0
@@ -681,13 +695,13 @@ class Kaliedoscope
     else
       @updateLoading(dt)
       @loading_timeout += dt/1000
-      if @state_loaded and @loading_timeout > @loading_time_limit
+      ###
+      if @state["loaded"] and @loading_timeout > @loading_time_limit
         @state_ready = true
         credits = document.getElementById 'credits'
         credits.style.display = 'none'
+      ###
 
-    #if CoffeeGL.Context.ongoingTouches.length > 0
-    #  @mouse_over = false
 
   # Loaded and running
   drawActual : () ->
@@ -718,7 +732,7 @@ class Kaliedoscope
 
   # Main Draw Loop
   draw : () ->
-    if @state_ready
+    if @state["loaded"] and @state["video"]
       @drawActual()
     else
       @drawLoading()
@@ -769,19 +783,6 @@ class Kaliedoscope
     y = event.mouseY 
     @interact(x,y)
 
-    if @mouse_pressed and @sound_on
-      if not @sounds_long[0].playing
-        @sounds_long[0].play()
-        @sounds_long[0].playing = true
-
-  ###
-  touchSwipe : (event) ->
-    @mouse_over = true
-    @mouse_pressed = true
-
-    for touch in CoffeeGL.Context.ongoingTouches
-      @interact touch.ppos.x, touch.ppos.y
-  ###
 
   mouseOver : (event) ->
     #@mouse_over = true
@@ -797,10 +798,6 @@ class Kaliedoscope
     @mouse_pressed = false
     @intersect_prev.set 0,0,0
     @intersect.set 0,0,0 
-
-    if @sound_on
-      @sounds_long[0].fadeOut(1.0)
-      @sounds_long[0].playing = false
 
 
 
@@ -919,9 +916,6 @@ keypressed = (event) ->
 
 
 
-
-
-
 # Add callbacks
 # Add keypress to the window so we always capture
 window.addEventListener "keypress", keypressed 
@@ -929,6 +923,25 @@ window.addEventListener('resize', kk.resize, false) if window?
 window.addEventListener('resize', credits_resize, false) if window?
 credits_resize()
 
+button = document.getElementById "submit-button"
+
+$('#submit-button').click () ->
+  btn = $(this)
+  btn.button('loading')
+  textbox = document.getElementById "youtube-textbox"
+  kk.submitYouTube(textbox.value)
+
+  
+###
+button.addEventListener "mouseup", (event) =>
+  textbox = document.getElementById "youtube-textbox"
+  textbox.disabled = 'true'
+  button.button = 'loading'
+  kk.submitYouTube(textbox.value)
+
+
+, false
+###
 #kaliedoscopeWebGL.startup()
 
 

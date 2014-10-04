@@ -10,7 +10,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
 
 (function() {
-  var Kaliedoscope, QueryString, canvas, credits_resize, flowx, flowy, gridx, gridy, kaliedoscopeWebGL, keypressed, kk, loadAssets, params, url_vars,
+  var Kaliedoscope, QueryString, button, canvas, credits_resize, flowx, flowy, gridx, gridy, kaliedoscopeWebGL, keypressed, kk, loadAssets, params, url_vars,
     __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
@@ -23,6 +23,14 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       this.flow_xres = flow_xres;
       this.flow_yres = flow_yres;
       this.resize = __bind(this.resize, this);
+      this.state = {
+        startup: true,
+        loaded: false,
+        webcam: false,
+        video: false,
+        youtube: false,
+        youtube_fetch: false
+      };
       this;
     }
 
@@ -260,19 +268,13 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     };
 
     Kaliedoscope.prototype.init = function() {
-      var i, r2, r3, r4, yevent, _i,
+      var i, r2, r3, r4, _i,
         _this = this;
-      if (this.state_ready == null) {
-        this.state_ready = false;
-      }
-      if (this.state_loaded == null) {
-        this.state_loaded = false;
-        this.loading_items = [];
-        this.loading_timeout = 0;
-        this.ready_fade_in = 0;
-        this.loading_time_limit = 3;
-        this.ready_fade_time = 3;
-      }
+      this.loading_items = [];
+      this.loading_timeout = 0;
+      this.ready_fade_in = 0;
+      this.loading_time_limit = 3;
+      this.ready_fade_time = 3;
       this.noise = new CoffeeGL.Noise.Noise();
       this.noise.setSeed(Math.random());
       if (this.colour_palette == null) {
@@ -338,9 +340,9 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         fade_current_time: 0
       };
       this.sound_long_playing = false;
-      this.sound_on = true;
+      this.sound_on = false;
       this.sound_short_triggers = [];
-      if (!this.state_loaded) {
+      if (!this.state["loaded"]) {
         this.sounds_long = [];
         this.sounds_short = [];
       }
@@ -367,11 +369,9 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         this.video_element.play();
         this.video_node.add(this.t);
       }
-      if (!this.state_loaded) {
+      if (!this.state["loaded"]) {
         loadAssets(this);
       }
-      this.youtube_url = "";
-      this.youtube_ready = false;
       this.datg = new dat.GUI();
       this.datg.remember(this);
       this.datg.add(this.warp, 'exponent', 1.0, 5.0);
@@ -390,35 +390,6 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       this.datg.add(this.webcam_params, 'fade_time', 0, 600).step(1);
       this.datg.add(this.webcam_params, 'fade_duration', 0, 10).step(0.1);
       this.youtube_element = document.getElementById("video_youtube");
-      yevent = this.datg.add(this, 'youtube_url');
-      yevent.onFinishChange(function(value) {
-        var youtube_id;
-        _this.video_ready = false;
-        _this.youtube_ready = false;
-        youtube_id = _this.youtube_url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/i);
-        if (youtube_id == null) {
-          alert("Youtube Link is incorrect.");
-          return;
-        }
-        _this.video_element.pause();
-        _this.youtube_element.src = 'https://dejima.section9.co.uk/youtube?id=' + encodeURIComponent(youtube_id[0]);
-        _this.youtube_element.addEventListener("ended", function() {
-          this.youtube_element.currentTime = 0;
-          return this.youtube_element.play();
-        }, false);
-        return _this.youtube_element.oncanplay = function(event) {
-          _this.video_node.remove(_this.t);
-          _this.t.washup();
-          _this.t = new CoffeeGL.TextureBase({
-            width: _this.youtube_element.videoWidth,
-            height: _this.youtube_element.videoHeight
-          });
-          _this.video_node.add(_this.t);
-          _this.youtube_element.play();
-          _this.t.update(_this.youtube_element);
-          return _this.youtube_ready = true;
-        };
-      });
       dat.GUI.toggleHide();
       CoffeeGL.Context.mouseMove.add(this.mouseMoved, this);
       CoffeeGL.Context.mouseOut.add(this.mouseOut, this);
@@ -427,6 +398,45 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       CoffeeGL.Context.mouseUp.add(this.mouseUp, this);
       this.mouse_over = false;
       return this.mouse_pressed = false;
+    };
+
+    Kaliedoscope.prototype.submitYouTube = function(url) {
+      var textbox, youtube_id,
+        _this = this;
+      if (this.state["youtube_fetch"]) {
+        return;
+      }
+      this.state["youtube_fetch"] = true;
+      this.state["youtube"] = false;
+      youtube_id = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/i);
+      if (youtube_id == null) {
+        alert("Youtube Link is incorrect.");
+        this.state["youtube_fetch"] = false;
+        textbox = document.getElementById("youtube-textbox");
+        $('#submit-button').button('reset');
+        return;
+      }
+      this.youtube_element.src = 'https://dejima.section9.co.uk/youtube?id=' + encodeURIComponent(youtube_id[0]);
+      this.youtube_element.addEventListener("ended", function() {
+        this.youtube_element.currentTime = 0;
+        return this.youtube_element.play();
+      }, false);
+      return this.youtube_element.oncanplay = function(event) {
+        var credits;
+        _this.video_node.remove(_this.t);
+        _this.t.washup();
+        _this.t = new CoffeeGL.TextureBase({
+          width: _this.youtube_element.videoWidth,
+          height: _this.youtube_element.videoHeight
+        });
+        _this.video_node.add(_this.t);
+        _this.youtube_element.play();
+        _this.t.update(_this.youtube_element);
+        _this.state["youtube"] = true;
+        _this.state["youtube_fetch"] = false;
+        credits = document.getElementById('credits');
+        return credits.style.display = 'none';
+      };
     };
 
     Kaliedoscope.prototype.updateFaceHighlight = function(idx) {
@@ -519,44 +529,30 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       });
     };
 
-    Kaliedoscope.prototype.updateActual = function(dt) {
+    Kaliedoscope.prototype.updateFader = function(dt) {
+      if (this.webcam_params.fade_current_time >= this.webcam_params.fade_time) {
+        if (this.webcam_params.fade_current_duration === 0) {
+          if (this.webcam_params.fader >= 0.5) {
+            this.webcam_params.fade_target = 0.0;
+          } else {
+            this.webcam_params.fade_target = 1.0;
+          }
+          this.webcam_params.tween = new CoffeeGL.Interpolation(this.webcam_params.fader, this.webcam_params.fade_target);
+        }
+        this.webcam_params.fade_current_duration += dt / 1000;
+        this.webcam_params.fader = this.webcam_params.tween.set(this.webcam_params.fade_current_duration / this.webcam_params.fade_duration);
+        if (this.webcam_params.fade_current_duration >= this.webcam_params.fade_duration) {
+          this.webcam_params.fade_current_time = 0;
+          this.webcam_params.fade_dist = 0;
+          return this.webcam_params.fade_current_duration = 0;
+        }
+      } else {
+        return this.webcam_params.fade_current_time += dt / 1000;
+      }
+    };
+
+    Kaliedoscope.prototype.updateWebcam = function(dt) {
       var active_flow, cur_now, cx, cy, dd, i, max_diff, max_now, now, prev, prev_now, px, py, _i, _len;
-      if (this.video_ready) {
-        this.t.update(this.video_element);
-      } else if (this.youtube_ready) {
-        this.t.update(this.youtube_element);
-      }
-      if (this.webcam_ready) {
-        this.wt.update(this.webcam_element);
-      }
-      if (this.shader != null) {
-        this.shader.bind();
-        this.shader.setUniform1f("uClockTick", CoffeeGL.Context.contextTime);
-        this.shader.setUniform1f("uMasterAlpha", this.ready_fade_in);
-      }
-      if (this.shader_face != null) {
-        this.shader_face.bind();
-        this.shader_face.setUniform1f("uClockTick", CoffeeGL.Context.contextTime);
-        this.shader_face.setUniform1f("uAlphaScalar", this.highLight.alpha_scalar);
-      }
-      this.naturalForce();
-      if (this.mouse_pressed) {
-        this.morphPlane(this.intersect, this.intersect_prev);
-      }
-      this.copyToFace();
-      this.updateFaceHighlight(this.selected_tris);
-      this.video_node.rebrew({
-        position_buffer: 0,
-        texcoord_buffer: 0
-      });
-      this.face_node.rebrew({
-        position_buffer: 0,
-        colour_buffer: 0
-      });
-      this.springBack();
-      if (this.sound_on) {
-        this.playSound();
-      }
       this.optical_flow.update(dt);
       active_flow = this.optical_flow.active_intersections();
       max_diff = 0;
@@ -587,32 +583,52 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         }
       }
       if (max_diff > 6.5) {
-        this.interact(max_now.x, max_now.y);
+        return this.interact(max_now.x, max_now.y);
       }
-      if (this.webcam_params.fade_current_time >= this.webcam_params.fade_time) {
-        if (this.webcam_params.fade_current_duration === 0) {
-          if (this.webcam_params.fader >= 0.5) {
-            this.webcam_params.fade_target = 0.0;
-          } else {
-            this.webcam_params.fade_target = 1.0;
-          }
-          this.webcam_params.tween = new CoffeeGL.Interpolation(this.webcam_params.fader, this.webcam_params.fade_target);
-        }
-        this.webcam_params.fade_current_duration += dt / 1000;
-        this.webcam_params.fader = this.webcam_params.tween.set(this.webcam_params.fade_current_duration / this.webcam_params.fade_duration);
-        if (this.webcam_params.fade_current_duration >= this.webcam_params.fade_duration) {
-          this.webcam_params.fade_current_time = 0;
-          this.webcam_params.fade_dist = 0;
-          return this.webcam_params.fade_current_duration = 0;
-        }
-      } else {
-        return this.webcam_params.fade_current_time += dt / 1000;
+    };
+
+    Kaliedoscope.prototype.updateActual = function(dt) {
+      if (this.state["youtube"]) {
+        this.t.update(this.youtube_element);
+      } else if (this.state["video"]) {
+        this.t.update(this.video_element);
+      }
+      if (this.webcam_ready) {
+        this.wt.update(this.webcam_element);
+      }
+      if (this.shader != null) {
+        this.shader.bind();
+        this.shader.setUniform1f("uClockTick", CoffeeGL.Context.contextTime);
+        this.shader.setUniform1f("uMasterAlpha", this.ready_fade_in);
+      }
+      if (this.shader_face != null) {
+        this.shader_face.bind();
+        this.shader_face.setUniform1f("uClockTick", CoffeeGL.Context.contextTime);
+        this.shader_face.setUniform1f("uAlphaScalar", this.highLight.alpha_scalar);
+      }
+      this.naturalForce();
+      if (this.mouse_pressed) {
+        this.morphPlane(this.intersect, this.intersect_prev);
+      }
+      this.copyToFace();
+      this.updateFaceHighlight(this.selected_tris);
+      this.video_node.rebrew({
+        position_buffer: 0,
+        texcoord_buffer: 0
+      });
+      this.face_node.rebrew({
+        position_buffer: 0,
+        colour_buffer: 0
+      });
+      this.springBack();
+      if (this.state["webcam"]) {
+        this.updateWebcam(dt);
+        return this.updateFader(dt);
       }
     };
 
     Kaliedoscope.prototype.update = function(dt) {
-      var credits;
-      if (this.state_ready) {
+      if (this.state["loaded"] && this.state["video"]) {
         this.ready_fade_in += (dt / 1000) / this.ready_fade_time;
         if (this.ready_fade_in > 1.0) {
           this.ready_fade_in = 1.0;
@@ -620,12 +636,14 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         return this.updateActual(dt);
       } else {
         this.updateLoading(dt);
-        this.loading_timeout += dt / 1000;
-        if (this.state_loaded && this.loading_timeout > this.loading_time_limit) {
-          this.state_ready = true;
-          credits = document.getElementById('credits');
-          return credits.style.display = 'none';
-        }
+        return this.loading_timeout += dt / 1000;
+        /*
+        if @state["loaded"] and @loading_timeout > @loading_time_limit
+          @state_ready = true
+          credits = document.getElementById 'credits'
+          credits.style.display = 'none'
+        */
+
       }
     };
 
@@ -656,7 +674,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     };
 
     Kaliedoscope.prototype.draw = function() {
-      if (this.state_ready) {
+      if (this.state["loaded"] && this.state["video"]) {
         return this.drawActual();
       } else {
         return this.drawLoading();
@@ -700,24 +718,8 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       var x, y;
       x = event.mouseX;
       y = event.mouseY;
-      this.interact(x, y);
-      if (this.mouse_pressed && this.sound_on) {
-        if (!this.sounds_long[0].playing) {
-          this.sounds_long[0].play();
-          return this.sounds_long[0].playing = true;
-        }
-      }
+      return this.interact(x, y);
     };
-
-    /*
-    touchSwipe : (event) ->
-      @mouse_over = true
-      @mouse_pressed = true
-    
-      for touch in CoffeeGL.Context.ongoingTouches
-        @interact touch.ppos.x, touch.ppos.y
-    */
-
 
     Kaliedoscope.prototype.mouseOver = function(event) {};
 
@@ -732,11 +734,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     Kaliedoscope.prototype.mouseUp = function(event) {
       this.mouse_pressed = false;
       this.intersect_prev.set(0, 0, 0);
-      this.intersect.set(0, 0, 0);
-      if (this.sound_on) {
-        this.sounds_long[0].fadeOut(1.0);
-        return this.sounds_long[0].playing = false;
-      }
+      return this.intersect.set(0, 0, 0);
     };
 
     Kaliedoscope.prototype.shutdown = function() {
@@ -867,6 +865,28 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
   credits_resize();
 
+  button = document.getElementById("submit-button");
+
+  $('#submit-button').click(function() {
+    var btn, textbox;
+    btn = $(this);
+    btn.button('loading');
+    textbox = document.getElementById("youtube-textbox");
+    return kk.submitYouTube(textbox.value);
+  });
+
+  /*
+  button.addEventListener "mouseup", (event) =>
+    textbox = document.getElementById "youtube-textbox"
+    textbox.disabled = 'true'
+    button.button = 'loading'
+    kk.submitYouTube(textbox.value)
+  
+  
+  , false
+  */
+
+
 }).call(this);
 
 },{"./assets":2}],2:[function(require,module,exports){
@@ -883,10 +903,11 @@ Coding - Benjamin Blundell obj. section9.co.uk
   OpticalFlow = require('./flow').OpticalFlow;
 
   loadAssets = function(obj) {
-    var a, b, i, _genLoadAudio, _i, _loadVideo, _loadWebcam,
+    var a, b, _genLoadAudio, _loadVideo, _loadWebcam,
       _this = this;
     a = function() {
-      var i, item, tt, _i;
+      var i, item, tt, _i, _results;
+      _results = [];
       for (i = _i = 0; _i <= 10; i = ++_i) {
         tt = Math.floor(Math.random() * obj.colour_palette.length);
         item = {
@@ -894,23 +915,22 @@ Coding - Benjamin Blundell obj. section9.co.uk
           colour: new CoffeeGL.Colour.RGBA.BLACK(),
           idx: Math.floor(Math.random() * obj.plane.getNumTris())
         };
-        obj.loading_items.push(item);
+        _results.push(obj.loading_items.push(item));
       }
-      return console.log("Loaded: " + obj.lq.completed_items.length / obj.lq.items.length);
+      return _results;
     };
     b = function() {
-      console.log("Loaded All");
-      return obj.state_loaded = true;
+      return obj.state["loaded"] = true;
     };
     obj.lq = new CoffeeGL.Loader.LoadQueue(obj, a, b);
     _loadVideo = new CoffeeGL.Loader.LoadItem(function() {
       var _this = this;
-      obj.video_element = document.getElementById("video_lexus");
+      obj.video_element = document.getElementById("video_default");
       obj.video_element.preload = "auto";
       if (CoffeeGL.Context.profile.browser === "Firefox") {
-        obj.video_element.src = "/H&L-Lexus-Edit01-final01.ogv";
+        obj.video_element.src = "/video_default.ogv";
       } else {
-        obj.video_element.src = "/H&L-Lexus-Edit01-final01.mp4";
+        obj.video_element.src = "/video_default.mp4";
       }
       obj.video_element.addEventListener("ended", function() {
         obj.video_element.currentTime = 0;
@@ -924,23 +944,28 @@ Coding - Benjamin Blundell obj. section9.co.uk
         }
       }, false);
       return obj.video_element.oncanplay = function(event) {
-        if (!obj.video_ready) {
+        if (!obj.state["video"]) {
           obj.video_element.play();
           obj.t.update(obj.video_element);
           obj.video_node.add(obj.t);
-          obj.video_ready = true;
+          obj.state["video"] = true;
           _this.loaded();
           return console.log("Video Loaded");
         }
       };
     });
     _loadWebcam = new CoffeeGL.Loader.LoadItem(function() {
-      var _this = this;
+      var webcamError,
+        _this = this;
+      webcamError = function() {
+        obj.state["webcam"] = false;
+        return _this.loaded();
+      };
       obj.webcam_element = document.getElementById("video_webcam");
-      obj.webcam_canvas = document.getElementById("webcam-canvas");
-      obj.webcam = new CoffeeGL.WebCamRTC("video_webcam", 640, 480, false);
+      obj.webcam_canvas = document.getElementById("webcam_canvas");
+      obj.webcam = new CoffeeGL.WebCamRTC("video_webcam", 640, 480, false, webcamError);
       return obj.webcam_element.oncanplay = function(event) {
-        if (!obj.webcam_ready) {
+        if (!obj.state["webcam"]) {
           obj.wt = new CoffeeGL.TextureBase({
             width: obj.webcam_element.videoWidth,
             height: obj.webcam_element.videoHeight,
@@ -948,15 +973,14 @@ Coding - Benjamin Blundell obj. section9.co.uk
           });
           obj.webcam_node.add(obj.wt);
           obj.webcam_element.play();
-          obj.webcam_ready = true;
           obj.video_node.add(obj.wt);
           obj.optical_flow = new OpticalFlow(obj.webcam_element, obj.webcam_canvas, obj.flow_xres, obj.flow_yres);
           obj.datg.add(obj.optical_flow.options, 'win_size', 7, 30).step(1);
           obj.datg.add(obj.optical_flow.options, 'max_iterations', 3, 30).step(1);
           obj.datg.add(obj.optical_flow.options, 'epsilon', 0.001, 0.1).step(0.0025);
           obj.datg.add(obj.optical_flow.options, 'min_eigen', 0.001, 0.01).step(0.0001);
-          _this.loaded();
-          return console.log("Webcam Loaded", obj.webcam_element.videoWidth, obj.webcam_element.videoHeight);
+          obj.state["webcam"] = true;
+          return _this.loaded();
         }
       };
     });
@@ -990,10 +1014,6 @@ Coding - Benjamin Blundell obj. section9.co.uk
     };
     obj.lq.add(_loadWebcam);
     obj.lq.add(_loadVideo);
-    obj.lq.add(_genLoadAudio('/sound/long/Lexus.mp3', obj.sounds_long, true));
-    for (i = _i = 0; _i <= 5; i = ++_i) {
-      obj.lq.add(_genLoadAudio('/sound/short/sound00' + i + '.mp3', obj.sounds_short, false));
-    }
     obj.lq.start();
     return obj;
   };

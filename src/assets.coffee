@@ -24,11 +24,8 @@ loadAssets = (obj) ->
 
       obj.loading_items.push item
 
-    console.log ( "Loaded: " + obj.lq.completed_items.length / obj.lq.items.length)
-
   b = () =>
-    console.log "Loaded All"
-    obj.state_loaded = true
+    obj.state["loaded"] = true
 
 
   obj.lq = new CoffeeGL.Loader.LoadQueue obj, a, b
@@ -37,14 +34,14 @@ loadAssets = (obj) ->
 
   _loadVideo = new CoffeeGL.Loader.LoadItem () ->
 
-    obj.video_element = document.getElementById "video_lexus"
+    obj.video_element = document.getElementById "video_default"
     obj.video_element.preload = "auto"
 
     # Select different video format depending on the browser
     if CoffeeGL.Context.profile.browser == "Firefox"
-      obj.video_element.src = "/H&L-Lexus-Edit01-final01.ogv"
+      obj.video_element.src = "/video_default.ogv"
     else
-      obj.video_element.src = "/H&L-Lexus-Edit01-final01.mp4"
+      obj.video_element.src = "/video_default.mp4"
 
     obj.video_element.addEventListener "ended", () ->
       obj.video_element.currentTime = 0
@@ -53,8 +50,8 @@ loadAssets = (obj) ->
 
     # This is a cheat to get the video lopping as nothing else works ><
     # Actually, a proper server link nginx works fine. Its to do with partial downloads
+    
     obj.video_element.addEventListener "timeupdate", () ->
-      #console.log obj.video_element.currentTime
       if obj.video_element.currentTime > 53 
         obj.video_element.pause()
         obj.video_element.currentTime = 0
@@ -64,14 +61,11 @@ loadAssets = (obj) ->
 
     obj.video_element.oncanplay = (event) =>
       # This play pause stuff is needed to get around events not firing ><
-      if not obj.video_ready
-        #obj.video_element.play()
-        #obj.video_element.pause()
-        #obj.video_element.currentTime = 0
+      if not obj.state["video"]
         obj.video_element.play()
         obj.t.update obj.video_element
         obj.video_node.add obj.t
-        obj.video_ready = true
+        obj.state["video"] = true
 
         @loaded()
         console.log "Video Loaded"
@@ -79,19 +73,24 @@ loadAssets = (obj) ->
   # Get access to the webcam for our optical flow
   _loadWebcam = new CoffeeGL.Loader.LoadItem () ->
 
+    webcamError = () =>
+      # webcam couldnt be loaded so proceed without
+      obj.state["webcam"] = false
+      @loaded()
+
     obj.webcam_element = document.getElementById "video_webcam"
-    obj.webcam_canvas = document.getElementById "webcam-canvas"
-    obj.webcam = new CoffeeGL.WebCamRTC("video_webcam",640,480,false)
+    obj.webcam_canvas = document.getElementById "webcam_canvas"
+    obj.webcam = new CoffeeGL.WebCamRTC("video_webcam",640,480,false,webcamError)
   
+
     obj.webcam_element.oncanplay = (event) =>
-      if not obj.webcam_ready
+      if not obj.state["webcam"]
 
         # Create the texture that matches the webcam size
         obj.wt = new CoffeeGL.TextureBase({ width: obj.webcam_element.videoWidth, height: obj.webcam_element.videoHeight, unit: 1 })
         obj.webcam_node.add obj.wt
         obj.webcam_element.play()
-        obj.webcam_ready = true
-
+       
         # Add the new texture to the video node so we can fade
         obj.video_node.add obj.wt
 
@@ -104,8 +103,8 @@ loadAssets = (obj) ->
         obj.datg.add(obj.optical_flow.options, 'epsilon',0.001,0.1).step(0.0025)
         obj.datg.add(obj.optical_flow.options, 'min_eigen',0.001,0.01).step(0.0001)
 
+        obj.state["webcam"] = true
         @loaded()
-        console.log "Webcam Loaded", obj.webcam_element.videoWidth, obj.webcam_element.videoHeight
 
   # Return Audio Load Items
   _genLoadAudio = (audio_url,attach,long) ->
@@ -135,11 +134,11 @@ loadAssets = (obj) ->
   obj.lq.add _loadWebcam
   obj.lq.add _loadVideo
 
-  obj.lq.add _genLoadAudio('/sound/long/Lexus.mp3', obj.sounds_long, true)
+  #obj.lq.add _genLoadAudio('/sound/long/long.mp3', obj.sounds_long, true)
 
   # Short sounds
-  for i in [0..5] 
-    obj.lq.add _genLoadAudio('/sound/short/sound00' + i + '.mp3', obj.sounds_short, false)
+  #for i in [0..5] 
+  #  obj.lq.add _genLoadAudio('/sound/short/sound00' + i + '.mp3', obj.sounds_short, false)
 
   obj.lq.start()
     
