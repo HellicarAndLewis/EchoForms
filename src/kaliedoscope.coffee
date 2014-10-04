@@ -21,6 +21,8 @@ class Kaliedoscope
       video : false
       youtube : false
       youtube_fetch : false
+      num_shaders : 0
+      shaders : false
 
     @
   
@@ -303,19 +305,31 @@ class Kaliedoscope
     @webcam_node = new CoffeeGL.Node new CoffeeGL.Quad()
 
     # Load shaders seperately as they are important to the context
+    # We wait till they are all loaded before anything gets drawn
+
+
     r2 = new CoffeeGL.Request('/kaliedoscope.glsl')
     r2.get (data) =>
       @shader = new CoffeeGL.Shader(data)
+      @state["num_shaders"] += 1
+      if @state["num_shaders"] == 3
+        @state["shaders"] = true
      
     r4 = new CoffeeGL.Request('/basic_texture.glsl')
     r4.get (data) =>
       @shader_basic = new CoffeeGL.Shader(data)
+      @state["num_shaders"] += 1
+      if @state["num_shaders"] == 3
+        @state["shaders"] = true
     
     r3 = new CoffeeGL.Request('/face.glsl')
     r3.get (data) =>
       @shader_face = new CoffeeGL.Shader(data)
       @shader_face.bind()
       @shader_face.setUniform1f "uAlphaScalar", @highLight.alpha_scalar
+      @state["num_shaders"] += 1
+      if @state["num_shaders"] == 3
+        @state["shaders"] = true
      
 
     # Intersections
@@ -533,10 +547,10 @@ class Kaliedoscope
 
   updateLoading : (dt) ->
 
-    if @shader_face?
-      @shader_face.bind()
-      @shader_face.setUniform1f "uClockTick", CoffeeGL.Context.contextTime 
-      @shader_face.setUniform1f "uAlphaScalar", 1.0
+
+    @shader_face.bind()
+    @shader_face.setUniform1f "uClockTick", CoffeeGL.Context.contextTime 
+    @shader_face.setUniform1f "uAlphaScalar", 1.0
 
     #if Math.random() > 0.1
     for i in @loading_items
@@ -685,6 +699,9 @@ class Kaliedoscope
 
   update : (dt) -> 
 
+    if not @state["shaders"]
+     return
+
     if @state["loaded"] and @state["video"]
     
       @ready_fade_in += (dt / 1000) / @ready_fade_time
@@ -732,6 +749,10 @@ class Kaliedoscope
 
   # Main Draw Loop
   draw : () ->
+
+    if not @state["shaders"]
+     return
+
     if @state["loaded"] and @state["video"]
       @drawActual()
     else
