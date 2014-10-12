@@ -278,11 +278,11 @@ class Kaliedoscope
 
     # Colours
     if not @colour_palette?
-      @colour_palette = [ new CoffeeGL.Colour.RGBA(31,169,225),  
-        new CoffeeGL.Colour.RGBA(34,54,107),
-        new CoffeeGL.Colour.RGBA(240,77,35), 
-        new CoffeeGL.Colour.RGBA(228,198,158), 
-        new CoffeeGL.Colour.RGBA(195,206,207) ]
+      @colour_palette = [ new CoffeeGL.Colour.RGBA(254,67,101),  
+        new CoffeeGL.Colour.RGBA(252,157,154),
+        new CoffeeGL.Colour.RGBA(249,205,173), 
+        new CoffeeGL.Colour.RGBA(200,200,169), 
+        new CoffeeGL.Colour.RGBA(131,175,155) ]
   
     # Plane
     #if not @plane
@@ -297,8 +297,6 @@ class Kaliedoscope
     @face_node.brew {position_buffer_access : GL.DYNAMIC_DRAW, colour_buffer_access: GL.DYNAMIC_DRAW} 
 
     @geomTrans CoffeeGL.Context.width, CoffeeGL.Context.height
-
-
 
     # Webcam Test Quad
     @webcam_node_draw = false
@@ -419,6 +417,7 @@ class Kaliedoscope
   
     # GUI Setup
 
+    ###
     @datg = new dat.GUI()
     @datg.remember(@)
 
@@ -437,6 +436,7 @@ class Kaliedoscope
     @datg.add(@webcam_params, 'fader', 0.0, 1.0).step(0.01)
     @datg.add(@webcam_params, 'fade_time', 0, 600).step(1)
     @datg.add(@webcam_params, 'fade_duration', 0, 10).step(0.1)
+    ###
 
     # More Youtube related stuff
     @youtube_element = document.getElementById "video_youtube"
@@ -445,7 +445,7 @@ class Kaliedoscope
     #yevent.onFinishChange @submitYouTube()
 
     # Off by default
-    dat.GUI.toggleHide();
+    #dat.GUI.toggleHide();
 
     # Setup mouse listener
     CoffeeGL.Context.mouseMove.add @mouseMoved, @
@@ -495,8 +495,8 @@ class Kaliedoscope
     @youtube_element.oncanplay = (event) =>
       # Resize the texture
       
-      @video_node.remove @t
-      @t.washup()
+      #@video_node.remove @t
+      #@t.washup()
       
       @t = new CoffeeGL.TextureBase({ width: @youtube_element.videoWidth, height:  @youtube_element.videoHeight })
       @video_node.add @t
@@ -579,6 +579,8 @@ class Kaliedoscope
 
     if @webcam_params.fade_current_time >= @webcam_params.fade_time
       
+      console.log("UPDATE");
+
       if @webcam_params.fade_current_duration == 0
         if @webcam_params.fader >= 0.5
           @webcam_params.fade_target = 0.0
@@ -586,6 +588,8 @@ class Kaliedoscope
           @webcam_params.fade_target = 1.0
   
         @webcam_params.tween = new CoffeeGL.Interpolation @webcam_params.fader,  @webcam_params.fade_target
+
+        console.log(@webcam_params.fader);
 
       @webcam_params.fade_current_duration += (dt / 1000)
     
@@ -602,11 +606,14 @@ class Kaliedoscope
         @webcam_params.fade_dist = 0
         @webcam_params.fade_current_duration = 0
 
-
-    else
-      @webcam_params.fade_current_time += (dt / 1000)
+    # Uncomment these two lines to do the auto fading again
+    #else
+    #  @webcam_params.fade_current_time += (dt / 1000)
 
   updateWebcam : (dt) ->
+
+    @wt.update @webcam_element
+
     @optical_flow.update(dt) 
 
     # Now look at these points that are moving and perform some interaction
@@ -662,8 +669,7 @@ class Kaliedoscope
     else if @state["video"]
       @t.update @video_element 
 
-    @wt.update @webcam_element if @webcam_ready
-
+   
     if @shader?
       @shader.bind()
       @shader.setUniform1f "uClockTick", CoffeeGL.Context.contextTime 
@@ -936,6 +942,23 @@ keypressed = (event) ->
     kk.webcam_params.fade_current_time = kk.webcam_params.fade_time
 
 
+# Hide Camera option for Firefox as it dosnt seem to work
+if CoffeeGL.Context.profile.browser == "Chrome"
+  item = document.getElementById "swapbutton"
+  item.style.display = "block"
+  item = document.getElementById "youtube-form"
+  item.style.display = "block"
+
+
+if CoffeeGL.Context.profile.browser == "Safari"
+  item = document.getElementById "youtube-form"
+  item.style.display = "block"
+
+if CoffeeGL.Context.profile.browser == "Firefox"
+  item = document.getElementById "firefox-warning"
+  item.style.display = "block"
+
+
 
 # Add callbacks
 # Add keypress to the window so we always capture
@@ -944,13 +967,18 @@ window.addEventListener('resize', kk.resize, false) if window?
 window.addEventListener('resize', credits_resize, false) if window?
 credits_resize()
 
-button = document.getElementById "submit-button"
 
 $('#submit-button').click () ->
   btn = $(this)
   btn.button('loading')
   textbox = document.getElementById "youtube-textbox"
   kk.submitYouTube(textbox.value)
+
+
+$('#camera-button').click () ->
+  btn = $(this)
+  btn.button('youtube mode')
+  kk.webcam_params.fade_current_time = kk.webcam_params.fade_time
 
   
 ###

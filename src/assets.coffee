@@ -98,10 +98,10 @@ loadAssets = (obj) ->
         obj.optical_flow = new OpticalFlow(obj.webcam_element, obj.webcam_canvas, obj.flow_xres, obj.flow_yres)
 
         # Additional options for dat.gui
-        obj.datg.add(obj.optical_flow.options, 'win_size',7,30).step(1)
-        obj.datg.add(obj.optical_flow.options, 'max_iterations',3,30).step(1)
-        obj.datg.add(obj.optical_flow.options, 'epsilon',0.001,0.1).step(0.0025)
-        obj.datg.add(obj.optical_flow.options, 'min_eigen',0.001,0.01).step(0.0001)
+        #obj.datg.add(obj.optical_flow.options, 'win_size',7,30).step(1)
+        #obj.datg.add(obj.optical_flow.options, 'max_iterations',3,30).step(1)
+        #obj.datg.add(obj.optical_flow.options, 'epsilon',0.001,0.1).step(0.0025)
+        #obj.datg.add(obj.optical_flow.options, 'min_eigen',0.001,0.01).step(0.0001)
 
         obj.state["webcam"] = true
         @loaded()
@@ -130,8 +130,9 @@ loadAssets = (obj) ->
 
       return _loadAudioSample
 
+  if CoffeeGL.Context.profile.browser == "Chrome"
+    obj.lq.add _loadWebcam
 
-  obj.lq.add _loadWebcam
   obj.lq.add _loadVideo
 
   #obj.lq.add _genLoadAudio('/sound/long/long.mp3', obj.sounds_long, true)

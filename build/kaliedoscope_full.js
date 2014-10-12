@@ -10,7 +10,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
 
 (function() {
-  var Kaliedoscope, QueryString, button, canvas, credits_resize, flowx, flowy, gridx, gridy, kaliedoscopeWebGL, keypressed, kk, loadAssets, params, url_vars,
+  var Kaliedoscope, QueryString, canvas, credits_resize, flowx, flowy, gridx, gridy, item, kaliedoscopeWebGL, keypressed, kk, loadAssets, params, url_vars,
     __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
@@ -280,7 +280,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       this.noise = new CoffeeGL.Noise.Noise();
       this.noise.setSeed(Math.random());
       if (this.colour_palette == null) {
-        this.colour_palette = [new CoffeeGL.Colour.RGBA(31, 169, 225), new CoffeeGL.Colour.RGBA(34, 54, 107), new CoffeeGL.Colour.RGBA(240, 77, 35), new CoffeeGL.Colour.RGBA(228, 198, 158), new CoffeeGL.Colour.RGBA(195, 206, 207)];
+        this.colour_palette = [new CoffeeGL.Colour.RGBA(254, 67, 101), new CoffeeGL.Colour.RGBA(252, 157, 154), new CoffeeGL.Colour.RGBA(249, 205, 173), new CoffeeGL.Colour.RGBA(200, 200, 169), new CoffeeGL.Colour.RGBA(131, 175, 155)];
       }
       this.setupPlane();
       this.video_node = new CoffeeGL.Node(this.plane);
@@ -386,25 +386,28 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       if (!this.state["loaded"]) {
         loadAssets(this);
       }
-      this.datg = new dat.GUI();
-      this.datg.remember(this);
-      this.datg.add(this.warp, 'exponent', 1.0, 5.0);
-      this.datg.add(this.warp, 'force', 0.0001, 0.01);
-      this.datg.add(this.warp, 'range', 0.1, 5.0);
-      this.datg.add(this.warp, 'springiness', 0.0001, 0.1).step(0.0001);
-      this.datg.add(this.warp, 'spring_damping', 0.1, 1.0).step(0.001);
-      this.datg.add(this.warp, 'rot_speed', 0.01, 10.0);
-      this.datg.add(this.warp, 'natural_rate', 0.1, 1.0);
-      this.datg.add(this.warp, 'natural_force', 0.0001, 0.01);
-      this.datg.add(this, 'sound_on');
-      this.datg.add(this.highLight, 'speed_in', 0.001, 0.1);
-      this.datg.add(this.highLight, 'speed_out', 0.001, 0.1);
-      this.datg.add(this.highLight, 'alpha_scalar', 0.1, 1.0);
-      this.datg.add(this.webcam_params, 'fader', 0.0, 1.0).step(0.01);
-      this.datg.add(this.webcam_params, 'fade_time', 0, 600).step(1);
-      this.datg.add(this.webcam_params, 'fade_duration', 0, 10).step(0.1);
+      /*
+      @datg = new dat.GUI()
+      @datg.remember(@)
+      
+      @datg.add(@warp,'exponent',1.0,5.0)
+      @datg.add(@warp,'force',0.0001,0.01)
+      @datg.add(@warp,'range',0.1,5.0)
+      @datg.add(@warp,'springiness', 0.0001, 0.1).step(0.0001)
+      @datg.add(@warp,'spring_damping', 0.1, 1.0).step(0.001)
+      @datg.add(@warp,'rot_speed', 0.01, 10.0)
+      @datg.add(@warp,'natural_rate', 0.1, 1.0)
+      @datg.add(@warp,'natural_force', 0.0001, 0.01)
+      @datg.add(@,'sound_on')
+      @datg.add(@highLight,'speed_in', 0.001, 0.1)
+      @datg.add(@highLight,'speed_out', 0.001, 0.1)
+      @datg.add(@highLight, 'alpha_scalar',0.1,1.0)
+      @datg.add(@webcam_params, 'fader', 0.0, 1.0).step(0.01)
+      @datg.add(@webcam_params, 'fade_time', 0, 600).step(1)
+      @datg.add(@webcam_params, 'fade_duration', 0, 10).step(0.1)
+      */
+
       this.youtube_element = document.getElementById("video_youtube");
-      dat.GUI.toggleHide();
       CoffeeGL.Context.mouseMove.add(this.mouseMoved, this);
       CoffeeGL.Context.mouseOut.add(this.mouseOut, this);
       CoffeeGL.Context.mouseOver.add(this.mouseOver, this);
@@ -437,8 +440,6 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       }, false);
       return this.youtube_element.oncanplay = function(event) {
         var credits;
-        _this.video_node.remove(_this.t);
-        _this.t.washup();
         _this.t = new CoffeeGL.TextureBase({
           width: _this.youtube_element.videoWidth,
           height: _this.youtube_element.videoHeight
@@ -543,6 +544,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
     Kaliedoscope.prototype.updateFader = function(dt) {
       if (this.webcam_params.fade_current_time >= this.webcam_params.fade_time) {
+        console.log("UPDATE");
         if (this.webcam_params.fade_current_duration === 0) {
           if (this.webcam_params.fader >= 0.5) {
             this.webcam_params.fade_target = 0.0;
@@ -550,6 +552,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
             this.webcam_params.fade_target = 1.0;
           }
           this.webcam_params.tween = new CoffeeGL.Interpolation(this.webcam_params.fader, this.webcam_params.fade_target);
+          console.log(this.webcam_params.fader);
         }
         this.webcam_params.fade_current_duration += dt / 1000;
         this.webcam_params.fader = this.webcam_params.tween.set(this.webcam_params.fade_current_duration / this.webcam_params.fade_duration);
@@ -558,13 +561,12 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
           this.webcam_params.fade_dist = 0;
           return this.webcam_params.fade_current_duration = 0;
         }
-      } else {
-        return this.webcam_params.fade_current_time += dt / 1000;
       }
     };
 
     Kaliedoscope.prototype.updateWebcam = function(dt) {
       var active_flow, cur_now, cx, cy, dd, i, max_diff, max_now, now, prev, prev_now, px, py, _i, _len;
+      this.wt.update(this.webcam_element);
       this.optical_flow.update(dt);
       active_flow = this.optical_flow.active_intersections();
       max_diff = 0;
@@ -604,9 +606,6 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
         this.t.update(this.youtube_element);
       } else if (this.state["video"]) {
         this.t.update(this.video_element);
-      }
-      if (this.webcam_ready) {
-        this.wt.update(this.webcam_element);
       }
       if (this.shader != null) {
         this.shader.bind();
@@ -871,6 +870,23 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     }
   };
 
+  if (CoffeeGL.Context.profile.browser === "Chrome") {
+    item = document.getElementById("swapbutton");
+    item.style.display = "block";
+    item = document.getElementById("youtube-form");
+    item.style.display = "block";
+  }
+
+  if (CoffeeGL.Context.profile.browser === "Safari") {
+    item = document.getElementById("youtube-form");
+    item.style.display = "block";
+  }
+
+  if (CoffeeGL.Context.profile.browser === "Firefox") {
+    item = document.getElementById("firefox-warning");
+    item.style.display = "block";
+  }
+
   window.addEventListener("keypress", keypressed);
 
   if (typeof window !== "undefined" && window !== null) {
@@ -883,14 +899,19 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
 
   credits_resize();
 
-  button = document.getElementById("submit-button");
-
   $('#submit-button').click(function() {
     var btn, textbox;
     btn = $(this);
     btn.button('loading');
     textbox = document.getElementById("youtube-textbox");
     return kk.submitYouTube(textbox.value);
+  });
+
+  $('#camera-button').click(function() {
+    var btn;
+    btn = $(this);
+    btn.button('youtube mode');
+    return kk.webcam_params.fade_current_time = kk.webcam_params.fade_time;
   });
 
   /*
@@ -993,10 +1014,6 @@ Coding - Benjamin Blundell obj. section9.co.uk
           obj.webcam_element.play();
           obj.video_node.add(obj.wt);
           obj.optical_flow = new OpticalFlow(obj.webcam_element, obj.webcam_canvas, obj.flow_xres, obj.flow_yres);
-          obj.datg.add(obj.optical_flow.options, 'win_size', 7, 30).step(1);
-          obj.datg.add(obj.optical_flow.options, 'max_iterations', 3, 30).step(1);
-          obj.datg.add(obj.optical_flow.options, 'epsilon', 0.001, 0.1).step(0.0025);
-          obj.datg.add(obj.optical_flow.options, 'min_eigen', 0.001, 0.01).step(0.0001);
           obj.state["webcam"] = true;
           return _this.loaded();
         }
@@ -1030,7 +1047,9 @@ Coding - Benjamin Blundell obj. section9.co.uk
         return _loadAudioSample;
       });
     };
-    obj.lq.add(_loadWebcam);
+    if (CoffeeGL.Context.profile.browser === "Chrome") {
+      obj.lq.add(_loadWebcam);
+    }
     obj.lq.add(_loadVideo);
     obj.lq.start();
     return obj;

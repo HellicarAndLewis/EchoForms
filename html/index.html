@@ -100,6 +100,21 @@
     color: black;
   }
 
+  #swapbutton {
+    position: absolute;
+    right: 12px;
+    top : 8px;
+    display: none;
+  }
+
+  #youtube-form {
+    display: none;
+  }
+
+  #firefox-warning{
+    display: none;
+  }
+
 </style>
 
 <video id="video_default" loop="loop">
@@ -113,11 +128,19 @@
 
 <canvas id="webcam_canvas" tabindex="1"></canvas>
 
+<div id="swapbutton">
+  <form class="form-horizontal" class="modal-form">
+  <button type="button" id="camera-button" class="btn">Toggle Camera</button>
+</form>
+</div>
+
 <div id="credits">
 <p><h3>"Echo Forms: an audiovisual Kaleidoscope"</h3></p>
+  <div id="firefox-warning"> 
+    <p>As firefox does not support mp4 and youtube does not support ogv as yet, this page cannot load movies from youtube.</p>
+  </div>
 
-
-  <form class="form-horizontal" class="modal-form">
+  <form class="form-horizontal" class="modal-form" id="youtube-form">
     <div class="modal-body">
       <h4 id="myModalLabel">Paste Youtube Link Here</h4>
        <input type="text" id="youtube-textbox" placeholder="youtube url" /><br/><br/>
@@ -127,9 +150,9 @@
 
 
 <p>
-Directed by Hellicar&Lewis<br/>
+Directed by <a href="http://www.hellicarandlewis.com">Hellicar&Lewis</a><br/>
 Produced by Swoon<br/>
-Programming by Benjamin Blundell<br/>
+Programming by <a href="http://www.section9.co.uk">Benjamin Blundell</a><br/>
 3D Design and Animation by Cai Matthews<br/>
 Photography and Editing by Robbie Newby<br/>
 </p>

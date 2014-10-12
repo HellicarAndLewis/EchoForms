@@ -83,10 +83,6 @@ Coding - Benjamin Blundell obj. section9.co.uk
           obj.webcam_element.play();
           obj.video_node.add(obj.wt);
           obj.optical_flow = new OpticalFlow(obj.webcam_element, obj.webcam_canvas, obj.flow_xres, obj.flow_yres);
-          obj.datg.add(obj.optical_flow.options, 'win_size', 7, 30).step(1);
-          obj.datg.add(obj.optical_flow.options, 'max_iterations', 3, 30).step(1);
-          obj.datg.add(obj.optical_flow.options, 'epsilon', 0.001, 0.1).step(0.0025);
-          obj.datg.add(obj.optical_flow.options, 'min_eigen', 0.001, 0.01).step(0.0001);
           obj.state["webcam"] = true;
           return _this.loaded();
         }
@@ -120,7 +116,9 @@ Coding - Benjamin Blundell obj. section9.co.uk
         return _loadAudioSample;
       });
     };
-    obj.lq.add(_loadWebcam);
+    if (CoffeeGL.Context.profile.browser === "Chrome") {
+      obj.lq.add(_loadWebcam);
+    }
     obj.lq.add(_loadVideo);
     obj.lq.start();
     return obj;
