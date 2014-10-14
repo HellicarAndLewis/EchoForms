@@ -764,7 +764,13 @@ class Kaliedoscope
     else
       @drawLoading()
 
+  resetToStart : () ->
+    @state["loaded"] = @state["video"] = true
+    @state["youtube"] = false
+    @video_element.play()
+    @youtube_element.pause()
 
+ 
   resize : () =>
     CoffeeGL.Context.resizeCanvas window.innerWidth, window.innerHeight
     @camera.setViewport CoffeeGL.Context.width, CoffeeGL.Context.height
@@ -944,7 +950,7 @@ keypressed = (event) ->
 
 # Hide Camera option for Firefox as it dosnt seem to work
 if CoffeeGL.Context.profile.browser == "Chrome"
-  item = document.getElementById "swapbutton"
+  item = document.getElementById "buttons"
   item.style.display = "block"
   item = document.getElementById "youtube-form"
   item.style.display = "block"
@@ -980,6 +986,12 @@ $('#camera-button').click () ->
   btn.button('youtube mode')
   kk.webcam_params.fade_current_time = kk.webcam_params.fade_time
 
+$('#reset-button').click () ->
+  btn = $(this)
+  kk.resetToStart()
+  credits = document.getElementById 'credits'
+  credits.style.display = 'block'
+  $('#submit-button').button("reset");
   
 ###
 button.addEventListener "mouseup", (event) =>

@@ -59,20 +59,11 @@
     text-align: center;
   }
 
-</style>
-
-</head>
-
-<body>
-    
-<header></header>
-
-<style>
   #video_default {
     display: none;
   }
 
-   #video_youtube {
+  #video_youtube {
     display: none;
   }
 
@@ -100,22 +91,39 @@
     color: black;
   }
 
-  #swapbutton {
+  #buttons {
     position: absolute;
     right: 12px;
     top : 8px;
     display: none;
   }
 
+  #swapbutton{
+    float: left;
+    display: inline-block;
+    margin-right: 12px;
+  }
+
+  #resetbutton{
+    display: inline-block;
+  }
+
+
   #youtube-form {
     display: none;
   }
 
-  #firefox-warning{
+  #firefox-warning {
     display: none;
   }
 
 </style>
+
+</head>
+
+<body>
+    
+<header></header>
 
 <video id="video_default" loop="loop">
 </video>
@@ -128,11 +136,20 @@
 
 <canvas id="webcam_canvas" tabindex="1"></canvas>
 
-<div id="swapbutton">
-  <form class="form-horizontal" class="modal-form">
-  <button type="button" id="camera-button" class="btn">Toggle Camera</button>
-</form>
+<div id ="buttons">
+  <div id="swapbutton">
+    <form class="form-horizontal" class="modal-form">
+      <button type="button" id="camera-button" class="btn">Toggle Camera</button>
+    </form>
+  </div>
+
+  <div id="resetbutton">
+    <form class="form-horizontal" class="modal-form">
+      <button type="button" id="reset-button" class="btn">Reset</button>
+    </form>
+  </div>
 </div>
+
 
 <div id="credits">
 <p><h3>"Echo Forms: an audiovisual Kaleidoscope"</h3></p>

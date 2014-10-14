@@ -697,6 +697,13 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
       }
     };
 
+    Kaliedoscope.prototype.resetToStart = function() {
+      this.state["loaded"] = this.state["video"] = true;
+      this.state["youtube"] = false;
+      this.video_element.play();
+      return this.youtube_element.pause();
+    };
+
     Kaliedoscope.prototype.resize = function() {
       CoffeeGL.Context.resizeCanvas(window.innerWidth, window.innerHeight);
       this.camera.setViewport(CoffeeGL.Context.width, CoffeeGL.Context.height);
@@ -870,7 +877,7 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
   };
 
   if (CoffeeGL.Context.profile.browser === "Chrome") {
-    item = document.getElementById("swapbutton");
+    item = document.getElementById("buttons");
     item.style.display = "block";
     item = document.getElementById("youtube-form");
     item.style.display = "block";
@@ -911,6 +918,15 @@ http://stackoverflow.com/questions/13739901/vertex-kaleidoscope-shader
     btn = $(this);
     btn.button('youtube mode');
     return kk.webcam_params.fade_current_time = kk.webcam_params.fade_time;
+  });
+
+  $('#reset-button').click(function() {
+    var btn, credits;
+    btn = $(this);
+    kk.resetToStart();
+    credits = document.getElementById('credits');
+    credits.style.display = 'block';
+    return $('#submit-button').button("reset");
   });
 
   /*
